@@ -15,6 +15,83 @@
       "when": 1784102786088,
       "tag": "0001_bizarre_harpoon",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1784105679448,
+      "tag": "0002_ordinary_mister_sinister",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1784110148127,
+      "tag": "0003_flashy_stingray",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1784110729456,
+      "tag": "0004_robust_tyrannus",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1784201413651,
+      "tag": "0005_cold_scarlet_spider",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1784207480395,
+      "tag": "0006_large_mojo",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1784207814403,
+      "tag": "0007_nifty_hydra",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1784208286564,
+      "tag": "0008_same_vulture",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1784208758012,
+      "tag": "0009_groovy_scarlet_witch",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1784209082655,
+      "tag": "0010_daffy_karnak",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1784209306428,
+      "tag": "0011_white_morph",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1784209959344,
+      "tag": "0012_third_sabretooth",
+      "breakpoints": true
     }
   ]
 }
