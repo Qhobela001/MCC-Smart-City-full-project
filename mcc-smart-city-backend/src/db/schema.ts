@@ -1,4 +1,5 @@
 import {
+  AnyPgColumn,
   pgTable,
   pgEnum,
   uuid,
@@ -128,6 +129,66 @@ export const incidentPriorityEnum = pgEnum('incident_priority', [
   'medium',
   'high',
   'critical',
+]);
+export const incidentSeverityEnum = pgEnum('incident_severity', [
+  'minor',
+  'moderate',
+  'major',
+  'critical',
+]);
+pgEnum('incident_status', [
+  'reported',
+  'verified',
+  'acknowledged',
+  'assigned',
+  'in_progress',
+  'awaiting_external',
+  'resolved',
+  'closed',
+  'cancelled',
+  'duplicate',
+]);
+pgEnum('incident_source', [
+  'ai_detection',
+  'camera_operator',
+  'citizen_web',
+  'citizen_mobile',
+  'iot_sensor',
+  'control_room',
+  'manual',
+  'api',
+]);
+export const incidentResolutionEnum = pgEnum('incident_resolution', [
+  'resolved',
+  'false_positive',
+  'duplicate',
+  'transferred',
+  'unable_to_reproduce',
+  'no_action_required',
+]);
+
+export const incidentStatusEnum = pgEnum('incident_status', [
+  'reported',
+  'verified',
+  'acknowledged',
+  'assigned',
+  'in_progress',
+  'awaiting_external',
+  'resolved',
+  'closed',
+  'cancelled',
+  'duplicate',
+]);
+
+export const incidentSourceEnum = pgEnum('incident_source', [
+  'ai_detection',
+  'camera_operator',
+  'citizen_web',
+  'citizen_mobile',
+  'iot_sensor',
+  'control_room',
+  'manual',
+  'api',
 ]);
 
 /*
@@ -309,7 +370,7 @@ export const incidentCategories = pgTable(
 |
 | Defines the specific municipal problems that can become incidents.
 | Each type belongs to a category and may have a default responsible
-| department, priority and service-level targets.
+| department, severity and service-level targets.
 |--------------------------------------------------------------------------
 */
 
@@ -339,8 +400,8 @@ export const incidentTypes = pgTable(
 
     description: text('description'),
 
-    defaultPriority: incidentPriorityEnum('default_priority')
-      .default('medium')
+    defaultSeverity: incidentSeverityEnum('default_severity')
+      .default('moderate')
       .notNull(),
 
     responsibleDepartmentId: uuid('responsible_department_id').references(
@@ -413,7 +474,7 @@ export const incidentTypes = pgTable(
 
     index('incident_types_name_idx').on(table.name),
 
-    index('incident_types_priority_idx').on(table.defaultPriority),
+    index('incident_types_severity_idx').on(table.defaultSeverity),
 
     index('incident_types_department_id_idx').on(table.responsibleDepartmentId),
 
@@ -425,6 +486,49 @@ export const incidentTypes = pgTable(
       table.categoryId,
       table.isActive,
     ),
+  ],
+);
+
+/*
+|--------------------------------------------------------------------------
+| INCIDENT NUMBER SEQUENCES
+|--------------------------------------------------------------------------
+|
+| Maintains concurrency-safe annual numbering for municipal incidents.
+| The backend will lock and increment the applicable year record when
+| generating numbers such as INC-2026-000001.
+|--------------------------------------------------------------------------
+*/
+
+export const incidentNumberSequences = pgTable(
+  'incident_number_sequences',
+  {
+    year: integer('year').primaryKey(),
+
+    prefix: varchar('prefix', {
+      length: 20,
+    })
+      .default('INC')
+      .notNull(),
+
+    lastNumber: integer('last_number').default(0).notNull(),
+
+    paddingLength: integer('padding_length').default(6).notNull(),
+
+    createdAt: timestamp('created_at', {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+
+    updatedAt: timestamp('updated_at', {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index('incident_number_sequences_updated_at_idx').on(table.updatedAt),
   ],
 );
 
@@ -973,6 +1077,353 @@ export const cameraStreams = pgTable('camera_streams', {
     .defaultNow()
     .notNull(),
 });
+
+/*This is the Incidents-schema*/
+
+export const incidents = pgTable(
+  'incidents',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+
+    incidentNumber: varchar('incident_number', {
+      length: 40,
+    })
+      .notNull()
+      .unique(),
+
+    externalReference: varchar('external_reference', {
+      length: 120,
+    }),
+
+    parentIncidentId: uuid('parent_incident_id').references(
+      (): AnyPgColumn => incidents.id,
+      {
+        onDelete: 'set null',
+        onUpdate: 'cascade',
+      },
+    ),
+
+    duplicateOfIncidentId: uuid('duplicate_of_incident_id').references(
+      (): AnyPgColumn => incidents.id,
+      {
+        onDelete: 'set null',
+        onUpdate: 'cascade',
+      },
+    ),
+
+    incidentTypeId: uuid('incident_type_id')
+      .notNull()
+      .references(() => incidentTypes.id, {
+        onDelete: 'restrict',
+        onUpdate: 'cascade',
+      }),
+
+    categoryId: uuid('category_id')
+      .notNull()
+      .references(() => incidentCategories.id, {
+        onDelete: 'restrict',
+        onUpdate: 'cascade',
+      }),
+
+    categoryCodeSnapshot: varchar('category_code_snapshot', {
+      length: 50,
+    }).notNull(),
+
+    categoryNameSnapshot: varchar('category_name_snapshot', {
+      length: 120,
+    }).notNull(),
+
+    incidentTypeCodeSnapshot: varchar('incident_type_code_snapshot', {
+      length: 60,
+    }).notNull(),
+
+    incidentTypeNameSnapshot: varchar('incident_type_name_snapshot', {
+      length: 160,
+    }).notNull(),
+
+    title: varchar('title', {
+      length: 220,
+    }).notNull(),
+
+    description: text('description'),
+
+    severity: incidentSeverityEnum('severity').default('moderate').notNull(),
+
+    priority: incidentPriorityEnum('priority').default('medium').notNull(),
+
+    status: incidentStatusEnum('status').default('reported').notNull(),
+
+    source: incidentSourceEnum('source').default('manual').notNull(),
+
+    locationId: uuid('location_id').references(() => locations.id, {
+      onDelete: 'set null',
+      onUpdate: 'cascade',
+    }),
+
+    locationNameSnapshot: varchar('location_name_snapshot', {
+      length: 160,
+    }),
+
+    addressSnapshot: text('address_snapshot'),
+
+    districtSnapshot: varchar('district_snapshot', {
+      length: 120,
+    }),
+
+    latitude: numeric('latitude', {
+      precision: 10,
+      scale: 7,
+    }),
+
+    longitude: numeric('longitude', {
+      precision: 10,
+      scale: 7,
+    }),
+
+    locationAccuracyMeters: numeric('location_accuracy_meters', {
+      precision: 10,
+      scale: 2,
+    }),
+
+    reporterUserId: uuid('reporter_user_id').references(() => users.id, {
+      onDelete: 'set null',
+      onUpdate: 'cascade',
+    }),
+
+    reporterDepartmentId: uuid('reporter_department_id').references(
+      () => departments.id,
+      {
+        onDelete: 'set null',
+        onUpdate: 'cascade',
+      },
+    ),
+
+    reporterName: varchar('reporter_name', {
+      length: 160,
+    }),
+
+    reporterContact: varchar('reporter_contact', {
+      length: 160,
+    }),
+
+    assignedDepartmentId: uuid('assigned_department_id').references(
+      () => departments.id,
+      {
+        onDelete: 'set null',
+        onUpdate: 'cascade',
+      },
+    ),
+
+    assignedUserId: uuid('assigned_user_id').references(() => users.id, {
+      onDelete: 'set null',
+      onUpdate: 'cascade',
+    }),
+
+    cameraId: uuid('camera_id').references(() => cameras.id, {
+      onDelete: 'set null',
+      onUpdate: 'cascade',
+    }),
+
+    deviceId: uuid('device_id').references(() => devices.id, {
+      onDelete: 'set null',
+      onUpdate: 'cascade',
+    }),
+
+    cameraStreamId: uuid('camera_stream_id').references(
+      () => cameraStreams.id,
+      {
+        onDelete: 'set null',
+        onUpdate: 'cascade',
+      },
+    ),
+
+    jetsonNodeId: uuid('jetson_node_id').references(() => jetsonNodes.id, {
+      onDelete: 'set null',
+      onUpdate: 'cascade',
+    }),
+
+    cameraCodeSnapshot: varchar('camera_code_snapshot', {
+      length: 80,
+    }),
+
+    deviceCodeSnapshot: varchar('device_code_snapshot', {
+      length: 80,
+    }),
+
+    aiConfidence: numeric('ai_confidence', {
+      precision: 5,
+      scale: 4,
+    }),
+
+    aiModelName: varchar('ai_model_name', {
+      length: 160,
+    }),
+
+    aiModelVersion: varchar('ai_model_version', {
+      length: 80,
+    }),
+
+    detectedAt: timestamp('detected_at', {
+      withTimezone: true,
+    }),
+
+    automaticallyCreated: boolean('automatically_created')
+      .default(false)
+      .notNull(),
+
+    verificationRequired: boolean('verification_required')
+      .default(true)
+      .notNull(),
+
+    riskScore: numeric('risk_score', {
+      precision: 7,
+      scale: 2,
+    }),
+
+    serviceLevelProfileId: uuid('service_level_profile_id')
+      .notNull()
+      .references(() => serviceLevelProfiles.id, {
+        onDelete: 'restrict',
+        onUpdate: 'cascade',
+      }),
+
+    acknowledgementTargetMinutes: integer(
+      'acknowledgement_target_minutes',
+    ).notNull(),
+
+    responseTargetMinutes: integer('response_target_minutes').notNull(),
+
+    resolutionTargetMinutes: integer('resolution_target_minutes').notNull(),
+
+    escalationAfterMinutes: integer('escalation_after_minutes'),
+
+    acknowledgementDueAt: timestamp('acknowledgement_due_at', {
+      withTimezone: true,
+    }),
+
+    responseDueAt: timestamp('response_due_at', {
+      withTimezone: true,
+    }),
+
+    resolutionDueAt: timestamp('resolution_due_at', {
+      withTimezone: true,
+    }),
+
+    escalationDueAt: timestamp('escalation_due_at', {
+      withTimezone: true,
+    }),
+
+    reportedAt: timestamp('reported_at', {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+
+    verifiedAt: timestamp('verified_at', {
+      withTimezone: true,
+    }),
+
+    acknowledgedAt: timestamp('acknowledged_at', {
+      withTimezone: true,
+    }),
+
+    assignedAt: timestamp('assigned_at', {
+      withTimezone: true,
+    }),
+
+    workStartedAt: timestamp('work_started_at', {
+      withTimezone: true,
+    }),
+
+    resolvedAt: timestamp('resolved_at', {
+      withTimezone: true,
+    }),
+
+    closedAt: timestamp('closed_at', {
+      withTimezone: true,
+    }),
+
+    cancelledAt: timestamp('cancelled_at', {
+      withTimezone: true,
+    }),
+
+    resolutionCode: incidentResolutionEnum('resolution_code'),
+
+    resolutionSummary: text('resolution_summary'),
+
+    closureReason: text('closure_reason'),
+
+    cancellationReason: text('cancellation_reason'),
+
+    closedByUserId: uuid('closed_by_user_id').references(() => users.id, {
+      onDelete: 'set null',
+      onUpdate: 'cascade',
+    }),
+
+    metadata: jsonb('metadata')
+      .$type<Record<string, unknown>>()
+      .default({})
+      .notNull(),
+
+    createdAt: timestamp('created_at', {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+
+    updatedAt: timestamp('updated_at', {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index('incidents_external_reference_idx').on(table.externalReference),
+    index('incidents_parent_incident_id_idx').on(table.parentIncidentId),
+    index('incidents_duplicate_of_incident_id_idx').on(
+      table.duplicateOfIncidentId,
+    ),
+    index('incidents_incident_type_id_idx').on(table.incidentTypeId),
+    index('incidents_category_id_idx').on(table.categoryId),
+    index('incidents_status_idx').on(table.status),
+    index('incidents_priority_idx').on(table.priority),
+    index('incidents_severity_idx').on(table.severity),
+    index('incidents_source_idx').on(table.source),
+    index('incidents_location_id_idx').on(table.locationId),
+    index('incidents_reporter_user_id_idx').on(table.reporterUserId),
+    index('incidents_assigned_department_id_idx').on(
+      table.assignedDepartmentId,
+    ),
+    index('incidents_assigned_user_id_idx').on(table.assignedUserId),
+    index('incidents_camera_id_idx').on(table.cameraId),
+    index('incidents_device_id_idx').on(table.deviceId),
+    index('incidents_camera_stream_id_idx').on(table.cameraStreamId),
+    index('incidents_jetson_node_id_idx').on(table.jetsonNodeId),
+    index('incidents_service_level_profile_id_idx').on(
+      table.serviceLevelProfileId,
+    ),
+    index('incidents_reported_at_idx').on(table.reportedAt),
+    index('incidents_acknowledgement_due_at_idx').on(
+      table.acknowledgementDueAt,
+    ),
+    index('incidents_response_due_at_idx').on(table.responseDueAt),
+    index('incidents_resolution_due_at_idx').on(table.resolutionDueAt),
+    index('incidents_escalation_due_at_idx').on(table.escalationDueAt),
+    index('incidents_status_priority_idx').on(table.status, table.priority),
+    index('incidents_department_status_idx').on(
+      table.assignedDepartmentId,
+      table.status,
+    ),
+    index('incidents_type_reported_at_idx').on(
+      table.incidentTypeId,
+      table.reportedAt,
+    ),
+    index('incidents_status_reported_at_idx').on(
+      table.status,
+      table.reportedAt,
+    ),
+  ],
+);
 
 /*
 |--------------------------------------------------------------------------
@@ -1653,3 +2104,10 @@ export type NewServiceLevelProfile = typeof serviceLevelProfiles.$inferInsert;
 
 export type IncidentCategory = typeof incidentCategories.$inferSelect;
 
+export type IncidentNumberSequence =
+  typeof incidentNumberSequences.$inferSelect;
+
+export type NewIncidentNumberSequence =
+  typeof incidentNumberSequences.$inferInsert;
+export type Incident = typeof incidents.$inferSelect;
+export type NewIncident = typeof incidents.$inferInsert;

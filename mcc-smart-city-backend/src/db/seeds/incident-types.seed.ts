@@ -8,7 +8,7 @@ import {
   serviceLevelProfiles,
 } from '../schema';
 
-type Priority = 'low' | 'medium' | 'high' | 'critical';
+type Severity = 'minor' | 'moderate' | 'major' | 'critical';
 
 interface IncidentTypeSeed {
   incidentTypeCode: string;
@@ -17,7 +17,7 @@ interface IncidentTypeSeed {
   categoryCode: string;
   departmentCode: string;
   serviceLevelProfileCode: string;
-  defaultPriority: Priority;
+  defaultSeverity: Severity;
   isAiDetectable: boolean;
   evidenceRequired: boolean;
   supervisorVerificationRequired: boolean;
@@ -28,7 +28,7 @@ interface IncidentTypeSeed {
   metadata: Record<string, unknown>;
 }
 
-export async function seedIncidentTypes(): Promise<void> {
+async function seedIncidentTypes(): Promise<void> {
   console.log('Seeding incident types...');
 
   const requiredDepartmentCodes = ['ENV', 'PWO', 'SEC', 'OPS'];
@@ -116,7 +116,7 @@ export async function seedIncidentTypes(): Promise<void> {
       categoryCode: 'ENVIRONMENTAL',
       departmentCode: 'ENV',
       serviceLevelProfileCode: 'HIGH_PRIORITY',
-      defaultPriority: 'high',
+      defaultSeverity: 'major',
       isAiDetectable: true,
       evidenceRequired: true,
       supervisorVerificationRequired: true,
@@ -134,7 +134,7 @@ export async function seedIncidentTypes(): Promise<void> {
       categoryCode: 'ENVIRONMENTAL',
       departmentCode: 'ENV',
       serviceLevelProfileCode: 'STANDARD_MUNICIPAL',
-      defaultPriority: 'medium',
+      defaultSeverity: 'moderate',
       isAiDetectable: true,
       evidenceRequired: true,
       supervisorVerificationRequired: true,
@@ -152,7 +152,7 @@ export async function seedIncidentTypes(): Promise<void> {
       categoryCode: 'ENVIRONMENTAL',
       departmentCode: 'ENV',
       serviceLevelProfileCode: 'STANDARD_MUNICIPAL',
-      defaultPriority: 'medium',
+      defaultSeverity: 'moderate',
       isAiDetectable: true,
       evidenceRequired: true,
       supervisorVerificationRequired: true,
@@ -172,7 +172,7 @@ export async function seedIncidentTypes(): Promise<void> {
       categoryCode: 'ENVIRONMENTAL',
       departmentCode: 'ENV',
       serviceLevelProfileCode: 'STANDARD_MUNICIPAL',
-      defaultPriority: 'medium',
+      defaultSeverity: 'moderate',
       isAiDetectable: false,
       evidenceRequired: true,
       supervisorVerificationRequired: true,
@@ -190,7 +190,7 @@ export async function seedIncidentTypes(): Promise<void> {
       categoryCode: 'ENVIRONMENTAL',
       departmentCode: 'ENV',
       serviceLevelProfileCode: 'HIGH_PRIORITY',
-      defaultPriority: 'high',
+      defaultSeverity: 'major',
       isAiDetectable: false,
       evidenceRequired: true,
       supervisorVerificationRequired: true,
@@ -208,7 +208,7 @@ export async function seedIncidentTypes(): Promise<void> {
       categoryCode: 'ENVIRONMENTAL',
       departmentCode: 'ENV',
       serviceLevelProfileCode: 'STANDARD_MUNICIPAL',
-      defaultPriority: 'medium',
+      defaultSeverity: 'moderate',
       isAiDetectable: false,
       evidenceRequired: true,
       supervisorVerificationRequired: true,
@@ -226,7 +226,7 @@ export async function seedIncidentTypes(): Promise<void> {
       categoryCode: 'ROADS_TRANSPORT',
       departmentCode: 'PWO',
       serviceLevelProfileCode: 'STANDARD_MUNICIPAL',
-      defaultPriority: 'medium',
+      defaultSeverity: 'moderate',
       isAiDetectable: false,
       evidenceRequired: true,
       supervisorVerificationRequired: true,
@@ -244,7 +244,7 @@ export async function seedIncidentTypes(): Promise<void> {
       categoryCode: 'ROADS_TRANSPORT',
       departmentCode: 'PWO',
       serviceLevelProfileCode: 'HIGH_PRIORITY',
-      defaultPriority: 'high',
+      defaultSeverity: 'major',
       isAiDetectable: false,
       evidenceRequired: true,
       supervisorVerificationRequired: true,
@@ -262,7 +262,7 @@ export async function seedIncidentTypes(): Promise<void> {
       categoryCode: 'ROADS_TRANSPORT',
       departmentCode: 'PWO',
       serviceLevelProfileCode: 'STANDARD_MUNICIPAL',
-      defaultPriority: 'medium',
+      defaultSeverity: 'minor',
       isAiDetectable: false,
       evidenceRequired: true,
       supervisorVerificationRequired: true,
@@ -280,7 +280,7 @@ export async function seedIncidentTypes(): Promise<void> {
       categoryCode: 'ROADS_TRANSPORT',
       departmentCode: 'PWO',
       serviceLevelProfileCode: 'HIGH_PRIORITY',
-      defaultPriority: 'high',
+      defaultSeverity: 'major',
       isAiDetectable: false,
       evidenceRequired: true,
       supervisorVerificationRequired: true,
@@ -298,7 +298,7 @@ export async function seedIncidentTypes(): Promise<void> {
       categoryCode: 'PUBLIC_SAFETY',
       departmentCode: 'SEC',
       serviceLevelProfileCode: 'HIGH_PRIORITY',
-      defaultPriority: 'high',
+      defaultSeverity: 'major',
       isAiDetectable: true,
       evidenceRequired: true,
       supervisorVerificationRequired: true,
@@ -318,7 +318,7 @@ export async function seedIncidentTypes(): Promise<void> {
       categoryCode: 'PUBLIC_SAFETY',
       departmentCode: 'SEC',
       serviceLevelProfileCode: 'HIGH_PRIORITY',
-      defaultPriority: 'high',
+      defaultSeverity: 'major',
       isAiDetectable: false,
       evidenceRequired: true,
       supervisorVerificationRequired: true,
@@ -336,7 +336,7 @@ export async function seedIncidentTypes(): Promise<void> {
       categoryCode: 'PUBLIC_SAFETY',
       departmentCode: 'SEC',
       serviceLevelProfileCode: 'STANDARD_MUNICIPAL',
-      defaultPriority: 'medium',
+      defaultSeverity: 'moderate',
       isAiDetectable: true,
       evidenceRequired: true,
       supervisorVerificationRequired: true,
@@ -354,7 +354,7 @@ export async function seedIncidentTypes(): Promise<void> {
       categoryCode: 'PUBLIC_SAFETY',
       departmentCode: 'SEC',
       serviceLevelProfileCode: 'HIGH_PRIORITY',
-      defaultPriority: 'high',
+      defaultSeverity: 'major',
       isAiDetectable: false,
       evidenceRequired: true,
       supervisorVerificationRequired: true,
@@ -372,7 +372,7 @@ export async function seedIncidentTypes(): Promise<void> {
       categoryCode: 'UTILITIES',
       departmentCode: 'PWO',
       serviceLevelProfileCode: 'STANDARD_MUNICIPAL',
-      defaultPriority: 'medium',
+      defaultSeverity: 'moderate',
       isAiDetectable: false,
       evidenceRequired: true,
       supervisorVerificationRequired: true,
@@ -390,7 +390,7 @@ export async function seedIncidentTypes(): Promise<void> {
       categoryCode: 'UTILITIES',
       departmentCode: 'PWO',
       serviceLevelProfileCode: 'HIGH_PRIORITY',
-      defaultPriority: 'high',
+      defaultSeverity: 'major',
       isAiDetectable: false,
       evidenceRequired: true,
       supervisorVerificationRequired: true,
@@ -408,7 +408,7 @@ export async function seedIncidentTypes(): Promise<void> {
       categoryCode: 'UTILITIES',
       departmentCode: 'PWO',
       serviceLevelProfileCode: 'HIGH_PRIORITY',
-      defaultPriority: 'high',
+      defaultSeverity: 'major',
       isAiDetectable: false,
       evidenceRequired: true,
       supervisorVerificationRequired: true,
@@ -426,7 +426,7 @@ export async function seedIncidentTypes(): Promise<void> {
       categoryCode: 'UTILITIES',
       departmentCode: 'PWO',
       serviceLevelProfileCode: 'HIGH_PRIORITY',
-      defaultPriority: 'high',
+      defaultSeverity: 'major',
       isAiDetectable: false,
       evidenceRequired: true,
       supervisorVerificationRequired: true,
@@ -444,7 +444,7 @@ export async function seedIncidentTypes(): Promise<void> {
       categoryCode: 'EMERGENCY',
       departmentCode: 'OPS',
       serviceLevelProfileCode: 'CRITICAL_EMERGENCY',
-      defaultPriority: 'critical',
+      defaultSeverity: 'critical',
       isAiDetectable: true,
       evidenceRequired: true,
       supervisorVerificationRequired: false,
@@ -462,7 +462,7 @@ export async function seedIncidentTypes(): Promise<void> {
       categoryCode: 'EMERGENCY',
       departmentCode: 'OPS',
       serviceLevelProfileCode: 'CRITICAL_EMERGENCY',
-      defaultPriority: 'critical',
+      defaultSeverity: 'critical',
       isAiDetectable: false,
       evidenceRequired: true,
       supervisorVerificationRequired: false,
@@ -480,7 +480,7 @@ export async function seedIncidentTypes(): Promise<void> {
       categoryCode: 'EMERGENCY',
       departmentCode: 'OPS',
       serviceLevelProfileCode: 'CRITICAL_EMERGENCY',
-      defaultPriority: 'critical',
+      defaultSeverity: 'critical',
       isAiDetectable: false,
       evidenceRequired: true,
       supervisorVerificationRequired: false,
@@ -498,7 +498,7 @@ export async function seedIncidentTypes(): Promise<void> {
       categoryCode: 'EMERGENCY',
       departmentCode: 'OPS',
       serviceLevelProfileCode: 'CRITICAL_EMERGENCY',
-      defaultPriority: 'critical',
+      defaultSeverity: 'critical',
       isAiDetectable: false,
       evidenceRequired: true,
       supervisorVerificationRequired: false,
@@ -516,7 +516,7 @@ export async function seedIncidentTypes(): Promise<void> {
       categoryCode: 'GENERAL',
       departmentCode: 'OPS',
       serviceLevelProfileCode: 'LOW_PRIORITY',
-      defaultPriority: 'low',
+      defaultSeverity: 'minor',
       isAiDetectable: false,
       evidenceRequired: false,
       supervisorVerificationRequired: true,
@@ -534,7 +534,7 @@ export async function seedIncidentTypes(): Promise<void> {
       categoryCode: 'GENERAL',
       departmentCode: 'OPS',
       serviceLevelProfileCode: 'STANDARD_MUNICIPAL',
-      defaultPriority: 'medium',
+      defaultSeverity: 'moderate',
       isAiDetectable: false,
       evidenceRequired: false,
       supervisorVerificationRequired: true,
@@ -568,7 +568,7 @@ export async function seedIncidentTypes(): Promise<void> {
         incidentTypeCode: incidentType.incidentTypeCode,
         name: incidentType.name,
         description: incidentType.description,
-        defaultPriority: incidentType.defaultPriority,
+        defaultSeverity: incidentType.defaultSeverity,
         responsibleDepartmentId,
         serviceLevelProfileId,
         isAiDetectable: incidentType.isAiDetectable,
@@ -589,7 +589,7 @@ export async function seedIncidentTypes(): Promise<void> {
           categoryId,
           name: incidentType.name,
           description: incidentType.description,
-          defaultPriority: incidentType.defaultPriority,
+          defaultSeverity: incidentType.defaultSeverity,
           responsibleDepartmentId,
           serviceLevelProfileId,
           isAiDetectable: incidentType.isAiDetectable,
@@ -619,3 +619,5 @@ export async function seedIncidentTypes(): Promise<void> {
     `Incident types seeded. Active incident type count: ${seededTypes.length}.`,
   );
 }
+
+export default seedIncidentTypes;

@@ -4,7 +4,7 @@ import { seedRoles } from './seeds/roles.seed';
 import { seedDepartments } from './seeds/departments.seed';
 import { seedServiceLevelProfiles } from './seeds/service-level-profiles.seed';
 import { seedIncidentCategories } from './seeds/incident-categories.seed';
-import { seedIncidentTypes } from './seeds/incident-types.seed';
+import seedIncidentTypes from './seeds/incident-types.seed';
 import { seedLocations } from './seeds/locations.seed';
 import { seedAssets } from './seeds/assets.seed';
 import { seedDevices } from './seeds/devices.seed';
@@ -20,6 +20,7 @@ import { seedDeviceEvents } from './seeds/device-events.seed';
 import { seedNetworkLinkMetrics } from './seeds/network-link-metrics.seed';
 import { seedPowerReadings } from './seeds/power-readings.seed';
 import { seedCameraStreamMetrics } from './seeds/camera-stream-metrics.seed';
+import { seedIncidentNumberSequences } from './seeds/incident-number-sequences.seed';
 
 async function seed(): Promise<void> {
   console.log('Starting database seed...');
@@ -29,6 +30,10 @@ async function seed(): Promise<void> {
 
   await seedServiceLevelProfiles();
   await seedIncidentCategories();
+  await seedServiceLevelProfiles();
+  await seedIncidentCategories();
+  await seedIncidentTypes();
+  await seedIncidentNumberSequences();
   await seedIncidentTypes();
 
   await seedLocations();
@@ -40,7 +45,6 @@ async function seed(): Promise<void> {
   await seedNetworkLinks();
   await seedCameraStreams();
   await seedPowerSystems();
-
   await seedDeviceHeartbeats();
   await seedDeviceMetrics();
   await seedDeviceEvents();
