@@ -1,7 +1,11 @@
 import 'dotenv/config';
-import { seedDepartments } from './seeds/departments.seed';
-import { seedLocations } from './seeds/locations.seed';
+
 import { seedRoles } from './seeds/roles.seed';
+import { seedDepartments } from './seeds/departments.seed';
+import { seedServiceLevelProfiles } from './seeds/service-level-profiles.seed';
+import { seedIncidentCategories } from './seeds/incident-categories.seed';
+import { seedIncidentTypes } from './seeds/incident-types.seed';
+import { seedLocations } from './seeds/locations.seed';
 import { seedAssets } from './seeds/assets.seed';
 import { seedDevices } from './seeds/devices.seed';
 import { seedCameras } from './seeds/cameras.seed';
@@ -22,6 +26,11 @@ async function seed(): Promise<void> {
 
   await seedRoles();
   await seedDepartments();
+
+  await seedServiceLevelProfiles();
+  await seedIncidentCategories();
+  await seedIncidentTypes();
+
   await seedLocations();
   await seedAssets();
   await seedDevices();
@@ -31,7 +40,7 @@ async function seed(): Promise<void> {
   await seedNetworkLinks();
   await seedCameraStreams();
   await seedPowerSystems();
-  await seedDeviceEvents();
+
   await seedDeviceHeartbeats();
   await seedDeviceMetrics();
   await seedDeviceEvents();

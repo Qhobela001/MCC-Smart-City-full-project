@@ -123,6 +123,13 @@ export const eventSeverityEnum = pgEnum('event_severity', [
   'critical',
 ]);
 
+export const incidentPriorityEnum = pgEnum('incident_priority', [
+  'low',
+  'medium',
+  'high',
+  'critical',
+]);
+
 /*
 |--------------------------------------------------------------------------
 | ROLES
@@ -162,6 +169,264 @@ export const departments = pgTable('departments', {
 
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
+
+/*
+|--------------------------------------------------------------------------
+| SERVICE LEVEL PROFILES
+|--------------------------------------------------------------------------
+|
+| Reusable acknowledgement, response and resolution targets assigned to
+| incident types. This allows MCC to update operational targets centrally.
+|--------------------------------------------------------------------------
+*/
+
+export const serviceLevelProfiles = pgTable(
+  'service_level_profiles',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+
+    profileCode: varchar('profile_code', {
+      length: 60,
+    })
+      .notNull()
+      .unique(),
+
+    name: varchar('name', {
+      length: 160,
+    })
+      .notNull()
+      .unique(),
+
+    description: text('description'),
+
+    acknowledgementTargetMinutes: integer(
+      'acknowledgement_target_minutes',
+    ).notNull(),
+
+    responseTargetMinutes: integer('response_target_minutes').notNull(),
+
+    resolutionTargetMinutes: integer('resolution_target_minutes').notNull(),
+
+    escalationAfterMinutes: integer('escalation_after_minutes'),
+
+    isActive: boolean('is_active').default(true).notNull(),
+
+    metadata: jsonb('metadata')
+      .$type<Record<string, unknown>>()
+      .default({})
+      .notNull(),
+
+    createdAt: timestamp('created_at', {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+
+    updatedAt: timestamp('updated_at', {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index('service_level_profiles_active_idx').on(table.isActive),
+
+    index('service_level_profiles_ack_target_idx').on(
+      table.acknowledgementTargetMinutes,
+    ),
+
+    index('service_level_profiles_resolution_target_idx').on(
+      table.resolutionTargetMinutes,
+    ),
+  ],
+);
+
+/*
+|--------------------------------------------------------------------------
+| INCIDENT CATEGORIES
+|--------------------------------------------------------------------------
+|
+| Groups related incident types into broader municipal service areas.
+| Examples include Environmental, Roads, Public Safety and Emergency.
+|--------------------------------------------------------------------------
+*/
+
+export const incidentCategories = pgTable(
+  'incident_categories',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+
+    categoryCode: varchar('category_code', {
+      length: 50,
+    })
+      .notNull()
+      .unique(),
+
+    name: varchar('name', {
+      length: 120,
+    })
+      .notNull()
+      .unique(),
+
+    description: text('description'),
+
+    displayOrder: integer('display_order').default(0).notNull(),
+
+    isActive: boolean('is_active').default(true).notNull(),
+
+    metadata: jsonb('metadata')
+      .$type<Record<string, unknown>>()
+      .default({})
+      .notNull(),
+
+    createdAt: timestamp('created_at', {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+
+    updatedAt: timestamp('updated_at', {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index('incident_categories_code_idx').on(table.categoryCode),
+
+    index('incident_categories_name_idx').on(table.name),
+
+    index('incident_categories_active_idx').on(table.isActive),
+
+    index('incident_categories_display_order_idx').on(table.displayOrder),
+  ],
+);
+
+/*
+|--------------------------------------------------------------------------
+| INCIDENT TYPES
+|--------------------------------------------------------------------------
+|
+| Defines the specific municipal problems that can become incidents.
+| Each type belongs to a category and may have a default responsible
+| department, priority and service-level targets.
+|--------------------------------------------------------------------------
+*/
+
+export const incidentTypes = pgTable(
+  'incident_types',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+
+    categoryId: uuid('category_id')
+      .notNull()
+      .references(() => incidentCategories.id, {
+        onDelete: 'restrict',
+        onUpdate: 'cascade',
+      }),
+
+    incidentTypeCode: varchar('incident_type_code', {
+      length: 60,
+    })
+      .notNull()
+      .unique(),
+
+    name: varchar('name', {
+      length: 160,
+    })
+      .notNull()
+      .unique(),
+
+    description: text('description'),
+
+    defaultPriority: incidentPriorityEnum('default_priority')
+      .default('medium')
+      .notNull(),
+
+    responsibleDepartmentId: uuid('responsible_department_id').references(
+      () => departments.id,
+      {
+        onDelete: 'set null',
+        onUpdate: 'cascade',
+      },
+    ),
+
+    serviceLevelProfileId: uuid('service_level_profile_id')
+      .notNull()
+      .references(() => serviceLevelProfiles.id, {
+        onDelete: 'restrict',
+        onUpdate: 'cascade',
+      }),
+
+    isAiDetectable: boolean('is_ai_detectable').default(false).notNull(),
+
+    evidenceRequired: boolean('evidence_required').default(true).notNull(),
+
+    supervisorVerificationRequired: boolean('supervisor_verification_required')
+      .default(true)
+      .notNull(),
+
+    publicReportingAllowed: boolean('public_reporting_allowed')
+      .default(false)
+      .notNull(),
+
+    automaticIncidentCreationAllowed: boolean(
+      'automatic_incident_creation_allowed',
+    )
+      .default(false)
+      .notNull(),
+
+    minimumAutomaticConfidence: numeric('minimum_automatic_confidence', {
+      precision: 5,
+      scale: 4,
+    }),
+
+    displayOrder: integer('display_order').default(0).notNull(),
+
+    isActive: boolean('is_active').default(true).notNull(),
+
+    metadata: jsonb('metadata')
+      .$type<Record<string, unknown>>()
+      .default({})
+      .notNull(),
+
+    createdAt: timestamp('created_at', {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+
+    updatedAt: timestamp('updated_at', {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index('incident_types_category_id_idx').on(table.categoryId),
+
+    index('incident_types_service_level_profile_id_idx').on(
+      table.serviceLevelProfileId,
+    ),
+
+    index('incident_types_code_idx').on(table.incidentTypeCode),
+
+    index('incident_types_name_idx').on(table.name),
+
+    index('incident_types_priority_idx').on(table.defaultPriority),
+
+    index('incident_types_department_id_idx').on(table.responsibleDepartmentId),
+
+    index('incident_types_active_idx').on(table.isActive),
+
+    index('incident_types_ai_detectable_idx').on(table.isAiDetectable),
+
+    index('incident_types_category_active_idx').on(
+      table.categoryId,
+      table.isActive,
+    ),
+  ],
+);
 
 /*
 |--------------------------------------------------------------------------
@@ -1344,6 +1609,10 @@ export const cameraStreamMetrics = pgTable(
     index('camera_stream_metrics_reachable_idx').on(table.isReachable),
   ],
 );
+export type NewIncidentCategory = typeof incidentCategories.$inferInsert;
+
+export type IncidentType = typeof incidentTypes.$inferSelect;
+export type NewIncidentType = typeof incidentTypes.$inferInsert;
 export type CameraStreamMetric = typeof cameraStreamMetrics.$inferSelect;
 
 export type NewCameraStreamMetric = typeof cameraStreamMetrics.$inferInsert;
@@ -1377,3 +1646,10 @@ export type NewDeviceMetric = typeof deviceMetrics.$inferInsert;
 
 export type DeviceEvent = typeof deviceEvents.$inferSelect;
 export type NewDeviceEvent = typeof deviceEvents.$inferInsert;
+
+export type ServiceLevelProfile = typeof serviceLevelProfiles.$inferSelect;
+
+export type NewServiceLevelProfile = typeof serviceLevelProfiles.$inferInsert;
+
+export type IncidentCategory = typeof incidentCategories.$inferSelect;
+
