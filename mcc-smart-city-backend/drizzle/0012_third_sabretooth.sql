@@ -1,0 +1,25 @@
+CREATE INDEX "camera_stream_metrics_stream_id_idx" ON "camera_stream_metrics" USING btree ("camera_stream_id");--> statement-breakpoint
+CREATE INDEX "camera_stream_metrics_recorded_at_idx" ON "camera_stream_metrics" USING btree ("recorded_at");--> statement-breakpoint
+CREATE INDEX "camera_stream_metrics_stream_time_idx" ON "camera_stream_metrics" USING btree ("camera_stream_id","recorded_at");--> statement-breakpoint
+CREATE INDEX "camera_stream_metrics_reachable_idx" ON "camera_stream_metrics" USING btree ("is_reachable");--> statement-breakpoint
+CREATE INDEX "device_events_device_id_idx" ON "device_events" USING btree ("device_id");--> statement-breakpoint
+CREATE INDEX "device_events_occurred_at_idx" ON "device_events" USING btree ("occurred_at");--> statement-breakpoint
+CREATE INDEX "device_events_device_time_idx" ON "device_events" USING btree ("device_id","occurred_at");--> statement-breakpoint
+CREATE INDEX "device_events_severity_idx" ON "device_events" USING btree ("severity");--> statement-breakpoint
+CREATE INDEX "device_events_event_type_idx" ON "device_events" USING btree ("event_type");--> statement-breakpoint
+CREATE INDEX "device_events_acknowledged_by_idx" ON "device_events" USING btree ("acknowledged_by_user_id");--> statement-breakpoint
+CREATE INDEX "device_heartbeats_device_id_idx" ON "device_heartbeats" USING btree ("device_id");--> statement-breakpoint
+CREATE INDEX "device_heartbeats_heartbeat_at_idx" ON "device_heartbeats" USING btree ("heartbeat_at");--> statement-breakpoint
+CREATE INDEX "device_heartbeats_device_time_idx" ON "device_heartbeats" USING btree ("device_id","heartbeat_at");--> statement-breakpoint
+CREATE INDEX "device_heartbeats_status_idx" ON "device_heartbeats" USING btree ("status");--> statement-breakpoint
+CREATE INDEX "device_metrics_device_id_idx" ON "device_metrics" USING btree ("device_id");--> statement-breakpoint
+CREATE INDEX "device_metrics_recorded_at_idx" ON "device_metrics" USING btree ("recorded_at");--> statement-breakpoint
+CREATE INDEX "device_metrics_device_time_idx" ON "device_metrics" USING btree ("device_id","recorded_at");--> statement-breakpoint
+CREATE INDEX "device_metrics_device_name_time_idx" ON "device_metrics" USING btree ("device_id","metric_name","recorded_at");--> statement-breakpoint
+CREATE INDEX "device_metrics_metric_name_idx" ON "device_metrics" USING btree ("metric_name");--> statement-breakpoint
+CREATE INDEX "network_link_metrics_link_id_idx" ON "network_link_metrics" USING btree ("network_link_id");--> statement-breakpoint
+CREATE INDEX "network_link_metrics_recorded_at_idx" ON "network_link_metrics" USING btree ("recorded_at");--> statement-breakpoint
+CREATE INDEX "network_link_metrics_link_time_idx" ON "network_link_metrics" USING btree ("network_link_id","recorded_at");--> statement-breakpoint
+CREATE INDEX "power_readings_power_system_id_idx" ON "power_readings" USING btree ("power_system_id");--> statement-breakpoint
+CREATE INDEX "power_readings_recorded_at_idx" ON "power_readings" USING btree ("recorded_at");--> statement-breakpoint
+CREATE INDEX "power_readings_system_time_idx" ON "power_readings" USING btree ("power_system_id","recorded_at");
