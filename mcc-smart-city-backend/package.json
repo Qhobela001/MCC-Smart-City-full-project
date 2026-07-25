@@ -6,11 +6,6 @@
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
-    "db:seed": "tsx src/db/seed.ts",
-    "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate",
-    "db:migrate:debug": "tsx src/db/run-migrations.ts",
-    "db:studio": "drizzle-kit studio",
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
@@ -60,7 +55,6 @@
     "ts-loader": "^9.5.2",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
-    "tsx": "^4.23.1",
     "typescript": "^5.7.3",
     "typescript-eslint": "^8.20.0"
   },

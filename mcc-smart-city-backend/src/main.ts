@@ -1,23 +1,26 @@
+import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
-import {ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
+import { getAppConfig } from './config/app-config';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  app.setGlobalPrefix('api');
+  const config = getAppConfig();
+
+  app.setGlobalPrefix(config.apiPrefix);
   app.enableCors({
-    origin: ['http://localhost:3000'],
+    origin: config.corsOrigins,
     credentials: true,
   });
 
   app.useGlobalPipes(
-      new ValidationPipe({
-        whitelist: true,
-        forbidNonWhitelisted: true,
-        transform: true,
-      })
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+    }),
   );
 
-  await app.listen(process.env.PORT ?? 4000);
+  await app.listen(config.port);
 }
 bootstrap();
