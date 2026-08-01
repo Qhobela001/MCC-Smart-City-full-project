@@ -1,0 +1,9 @@
+"use client"
+import { ReactNode } from "react"
+import { Search, X } from "lucide-react"
+export function PageIntro({title,description,action}:{title:string;description:string;action?:ReactNode}){return <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div><h2 className="text-2xl font-semibold tracking-tight">{title}</h2><p className="mt-1 text-sm text-muted-foreground">{description}</p></div>{action}</div>}
+export function SearchBox({value,onChange,placeholder="Search..."}:{value:string;onChange:(v:string)=>void;placeholder?:string}){return <div className="flex h-10 items-center gap-2 rounded-md border bg-card px-3"><Search className="size-4 text-muted-foreground"/><input value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} className="w-full bg-transparent text-sm outline-none"/></div>}
+export function Modal({title,children,onClose}:{title:string;children:ReactNode;onClose:()=>void}){return <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"><div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl border bg-card shadow-2xl"><div className="sticky top-0 flex items-center justify-between border-b bg-card px-6 py-4"><h3 className="text-lg font-semibold">{title}</h3><button onClick={onClose} className="rounded-md p-2 hover:bg-muted"><X className="size-4"/></button></div><div className="p-6">{children}</div></div></div>}
+export const inputClass="mt-2 h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+export const labelClass="text-sm font-medium"
+export function StatusBadge({active,label}:{active:boolean;label?:string}){return <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${active?"bg-emerald-500/12 text-emerald-500":"bg-slate-500/12 text-slate-400"}`}>{label|| (active?"Active":"Inactive")}</span>}

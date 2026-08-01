@@ -1,0 +1,131 @@
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: mcc-smart-city-db
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
+    ports:
+      - "5432:5432"
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+    networks:
+      - mcc-network
+
+  backend:
+    build:
+      context: ./mcc-smart-city-backend
+      dockerfile: Dockerfile
+
+    container_name: mcc-smart-city-backend
+    restart: unless-stopped
+
+    environment:
+      APP_NAME: MCC Smart City API
+      APP_ENV: development
+      DEBUG: "true"
+
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+
+      FRONTEND_URL: http://localhost:${FRONTEND_PORT}
+
+      SECRET_KEY: ${SECRET_KEY}
+      ACCESS_TOKEN_EXPIRE_MINUTES: 60
+
+    ports:
+      - "${BACKEND_PORT}:8000"
+
+    volumes:
+      - ./mcc-smart-city-backend:/app
+      - backend_uploads:/app/uploads
+      - ./mcc-smart-city-backend/model_weights:/app/model_weights
+
+    depends_on:
+      db:
+        condition: service_healthy
+
+    command:
+      [
+        "uvicorn",
+        "app.main:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8000",
+        "--reload",
+      ]
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "curl",
+          "--fail",
+          "http://localhost:8000/health",
+        ]
+      interval: 10m
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+    networks:
+      - mcc-network
+
+  frontend:
+    build:
+      context: ./mcc-smart-city-frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:${BACKEND_PORT}/api/v1
+
+    container_name: mcc-smart-city-frontend
+    restart: unless-stopped
+
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: http://localhost:${BACKEND_PORT}/api/v1
+
+    ports:
+      - "${FRONTEND_PORT}:3000"
+
+    depends_on:
+      backend:
+        condition: service_healthy
+
+    networks:
+      - mcc-network
+
+volumes:
+  postgres_data:
+    name: mcc-smart-city-postgres-data
+
+  backend_uploads:
+    name: mcc-smart-city-backend-uploads
+
+networks:
+  mcc-network:
+    name: mcc-smart-city-network
+    driver: bridge
