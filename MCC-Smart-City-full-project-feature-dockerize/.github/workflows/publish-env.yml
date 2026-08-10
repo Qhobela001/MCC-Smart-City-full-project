@@ -1,0 +1,51 @@
+name: Publish .env to secure storage
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  publish-env:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Create .env file from secrets
+        run: |
+          cat > .env <<'EOF'
+          POSTGRES_DB=${{ secrets.POSTGRES_DB }}
+          POSTGRES_USER=${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+
+          BACKEND_PORT=${{ secrets.BACKEND_PORT }}
+          FRONTEND_PORT=${{ secrets.FRONTEND_PORT }}
+
+          SECRET_KEY=${{ secrets.SECRET_KEY }}
+          JWT_ALGORITHM=${{ secrets.JWT_ALGORITHM }}
+          ACCESS_TOKEN_EXPIRE_MINUTES=${{ secrets.ACCESS_TOKEN_EXPIRE_MINUTES }}
+
+          ALLOWED_ORIGINS=${{ secrets.ALLOWED_ORIGINS }}
+
+          SUPERADMIN_NAME=${{ secrets.SUPERADMIN_NAME }}
+          SUPERADMIN_EMAIL=${{ secrets.SUPERADMIN_EMAIL }}
+          SUPERADMIN_PASSWORD=${{ secrets.SUPERADMIN_PASSWORD }}
+          EOF
+
+      - name: Upload .env to S3 (private)
+        env:
+          S3_BUCKET: ${{ secrets.S3_BUCKET }}
+        run: |
+          DEST="s3://$S3_BUCKET/envs/${{ github.ref_name }}/.env"
+          aws s3 cp .env "$DEST" --acl private --sse AES256

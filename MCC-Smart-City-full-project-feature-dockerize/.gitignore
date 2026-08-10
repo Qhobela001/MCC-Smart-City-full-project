@@ -1,0 +1,12 @@
+.env
+*.log
+
+mcc-smart-city-backend/.env
+mcc-smart-city-backend/.venv
+mcc-smart-city-backend/__pycache__
+mcc-smart-city-backend/uploads/*
+mcc-smart-city-backend/model_weights/*
+
+mcc-smart-city-frontend/.env.local
+mcc-smart-city-frontend/node_modules
+mcc-smart-city-frontend/.next
