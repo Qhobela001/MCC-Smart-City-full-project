@@ -1,0 +1,269 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ChangeListManager">
+    <list default="true" id="c553361f-70b9-4aa6-b12d-1138e796fd70" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/.github/workflows/docker-build-push.yml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/.github/workflows/publish-env.yml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/.gitignore" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/docker-compose.yml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/docs/CI.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/docs/ENV_PUBLISH.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/.dockerignore" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/.env.example" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/.gitignore" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/Dockerfile" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/README.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/alembic.ini" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/api/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/api/v1/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/api/v1/router.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/api_router.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/core/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/core/config.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/core/dependencies.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/core/deps.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/core/exceptions.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/core/security.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/database/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/database/base.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/database/model_imports.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/database/session.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/db/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/db/base.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/db/init_db.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/db/session.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/main.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/alerts/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/alerts/models.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/alerts/repository.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/alerts/router.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/alerts/schemas.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/alerts/service.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/analytics/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/analytics/models.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/analytics/repository.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/analytics/router.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/analytics/schemas.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/analytics/service.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/authentication/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/authentication/dependencies.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/authentication/models.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/authentication/repository.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/authentication/router.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/authentication/schemas.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/authentication/service.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/cameras/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/cameras/models.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/cameras/repository.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/cameras/router.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/cameras/schemas.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/cameras/service.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/departments/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/departments/models.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/departments/repository.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/departments/router.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/departments/schemas.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/departments/service.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/detections/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/detections/event_mapper.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/detections/inference.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/detections/model_loader.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/detections/models.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/detections/repository.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/detections/router.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/detections/schemas.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/detections/service.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/detections/stream_processor.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/devices/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/devices/models.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/devices/repository.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/devices/router.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/devices/schemas.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/devices/service.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/evidence/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/evidence/models.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/evidence/repository.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/evidence/router.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/evidence/schemas.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/evidence/service.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/incidents/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/incidents/models.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/incidents/repository.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/incidents/router.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/incidents/schemas.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/incidents/service.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/navigation/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/navigation/models.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/navigation/repository.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/navigation/router.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/navigation/schemas.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/navigation/service.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/permissions/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/permissions/dependencies.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/permissions/models.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/permissions/repository.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/permissions/router.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/permissions/schemas.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/permissions/service.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/roles/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/roles/models.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/roles/repository.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/roles/router.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/roles/schemas.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/roles/service.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/users/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/users/models.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/users/repository.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/users/router.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/users/schemas.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/modules/users/service.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/shared/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/shared/enums.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/shared/pagination.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/shared/responses.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/shared/timestamps.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/app/shared/websocket_manager.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/model_weights/.gitkeep" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/pyproject.toml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/requirements-dev.txt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/requirements.txt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/tests/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/tests/test_health.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-backend/uploads/.gitkeep" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/.dockerignore" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/.env.example" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/.idea/.gitignore" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/.idea/dashboard-ui-building (1) (1).iml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/.idea/modules.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/Dockerfile" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/app/(dashboard)/administration/departments/page.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/app/(dashboard)/administration/navigation/page.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/app/(dashboard)/administration/roles/page.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/app/(dashboard)/administration/users/page.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/app/(dashboard)/analytics/page.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/app/(dashboard)/city-map/page.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/app/(dashboard)/devices/page.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/app/(dashboard)/incidents/page.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/app/(dashboard)/layout.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/app/(dashboard)/live-feeds/page.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/app/(dashboard)/page.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/app/change-password/page.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/app/globals.css" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/app/layout.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/app/login/page.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/app/public/mcc-logo.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/app/public/mcc-logo1.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/bottom.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/ceshi.ini" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/charts.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/components.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/components/admin/admin-ui.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/components/auth/auth-provider.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/components/auth/protected-route.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/components/dashboard/alerts-feed.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/components/dashboard/analytics-charts.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/components/dashboard/camera-map.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/components/dashboard/device-health.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/components/dashboard/global-search.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/components/dashboard/kpi-cards.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/components/dashboard/live-feeds.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/components/dashboard/sidebar.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/components/dashboard/top-bar-widgets.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/components/dashboard/top-bar.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/components/theme-toggle.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/components/ui/badge.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/components/ui/button.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/components/ui/card.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/components/ui/chart.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/components/ui/progress.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/components/ui/scroll-area.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/components/ui/separator.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/components/ui/switch.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/components/ui/table.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/components/ui/tabs.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/dashboard.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/devices.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/lib/api.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/lib/mock-data.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/lib/types.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/lib/utils.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/mcc-logo.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/mid.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/next-env.d.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/next.config.mjs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/package.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/pnpm-lock.yaml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/pnpm-workspace.yaml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/postcss.config.mjs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/public/apple-icon.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/public/feeds/feed-dumpsite.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/public/feeds/feed-intersection.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/public/feeds/feed-market.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/public/feeds/feed-road.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/public/icon-dark-32x32.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/public/icon-light-32x32.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/public/icon.svg" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/public/mcc-logo1.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/public/placeholder-logo.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/public/placeholder-logo.svg" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/public/placeholder-user.jpg" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/public/placeholder.jpg" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/public/placeholder.svg" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MCC-Smart-City-full-project-feature-dockerize/mcc-smart-city-frontend/tsconfig.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/index.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/package.json" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="ProjectColorInfo"><![CDATA[{
+  "associatedIndex": 5,
+  "fromUser": false
+}]]></component>
+  <component name="ProjectId" id="3HiIadjf2yQgKcdVqkHcWhIDMJ2" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
+    "codeWithMe.voiceChat.enabledByDefault": "false",
+    "git-widget-placeholder": "master",
+    "javascript.preferred.runtime.type.id": "node",
+    "nodejs_package_manager_path": "pnpm",
+    "ts.external.directory.path": "C:\\Program Files\\JetBrains\\WebStorm 2026.1.4\\plugins\\javascript-plugin\\jsLanguageServicesImpl\\external",
+    "vue.rearranger.settings.migration": "true"
+  }
+}]]></component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-js-predefined-d6986cc7102b-31caf2ab9e3c-JavaScript-WS-261.26222.58" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="c553361f-70b9-4aa6-b12d-1138e796fd70" name="Changes" comment="" />
+      <created>1786344527763</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1786344527763</updated>
+      <workItem from="1786344528754" duration="7914000" />
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+</project>
