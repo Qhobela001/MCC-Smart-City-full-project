@@ -1,6 +1,5 @@
 import hashlib
 import os
-import shutil
 from datetime import datetime
 from pathlib import Path
 from secrets import token_hex
@@ -28,6 +27,7 @@ from app.modules.users.models import User
 UPLOAD_ROOT = Path(
     os.getenv("UPLOAD_DIR", "uploads")
 ).resolve()
+
 MAX_EVIDENCE_SIZE = int(
     os.getenv(
         "MAX_EVIDENCE_SIZE_BYTES",
@@ -49,8 +49,8 @@ ALLOWED_MIME_TYPES: dict[str, EvidenceType] = {
 
 
 def ensure_can_access_evidence(
-    actor: User,
-    incident: Incident,
+        actor: User,
+        incident: Incident,
 ) -> None:
     if actor.is_superuser:
         return
@@ -59,8 +59,8 @@ def ensure_can_access_evidence(
         return
 
     if (
-        incident.created_by_id == actor.id
-        or incident.assigned_user_id == actor.id
+            incident.created_by_id == actor.id
+            or incident.assigned_user_id == actor.id
     ):
         return
 
@@ -71,8 +71,8 @@ def ensure_can_access_evidence(
 
 
 def ensure_can_upload(
-    actor: User,
-    incident: Incident,
+        actor: User,
+        incident: Incident,
 ) -> None:
     if actor.is_superuser:
         return
@@ -81,8 +81,8 @@ def ensure_can_upload(
         return
 
     if (
-        incident.created_by_id == actor.id
-        or incident.assigned_user_id == actor.id
+            incident.created_by_id == actor.id
+            or incident.assigned_user_id == actor.id
     ):
         return
 
@@ -93,8 +93,8 @@ def ensure_can_upload(
 
 
 def ensure_can_delete(
-    actor: User,
-    evidence: Evidence,
+        actor: User,
+        evidence: Evidence,
 ) -> None:
     if actor.is_superuser:
         return
@@ -113,26 +113,31 @@ def ensure_can_delete(
 
 def validate_file(upload: UploadFile) -> EvidenceType:
     content_type = (
-        upload.content_type or "application/octet-stream"
+            upload.content_type or "application/octet-stream"
     ).lower()
 
     evidence_type = ALLOWED_MIME_TYPES.get(content_type)
 
     if evidence_type is None:
         allowed = ", ".join(sorted(ALLOWED_MIME_TYPES))
+
         raise HTTPException(
             status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-            detail=f"Unsupported file type. Allowed MIME types: {allowed}",
+            detail=(
+                f"Unsupported file type. "
+                f"Allowed MIME types: {allowed}"
+            ),
         )
 
     return evidence_type
 
 
 def create_storage_path(
-    incident_id: int,
-    original_name: str,
+        incident_id: int,
+        original_name: str,
 ) -> tuple[Path, str, str]:
     suffix = Path(original_name).suffix.lower()
+
     stored_name = (
         f"{datetime.utcnow().strftime('%Y%m%d%H%M%S')}"
         f"-{token_hex(8)}{suffix}"
@@ -140,13 +145,14 @@ def create_storage_path(
 
     relative_directory = Path("evidence") / str(incident_id)
     absolute_directory = UPLOAD_ROOT / relative_directory
+
     absolute_directory.mkdir(
         parents=True,
         exist_ok=True,
     )
 
     relative_path = (
-        relative_directory / stored_name
+            relative_directory / stored_name
     ).as_posix()
 
     return (
@@ -157,17 +163,17 @@ def create_storage_path(
 
 
 def save_upload(
-    db: Session,
-    actor: User,
-    incident: Incident,
-    upload: UploadFile,
-    *,
-    description: str | None,
-    captured_at: datetime | None,
-    latitude: float | None,
-    longitude: float | None,
-    is_anonymized: bool,
-    is_enforcement_evidence: bool,
+        db: Session,
+        actor: User,
+        incident: Incident,
+        upload: UploadFile,
+        *,
+        description: str | None,
+        captured_at: datetime | None,
+        latitude: float | None,
+        longitude: float | None,
+        is_anonymized: bool,
+        is_enforcement_evidence: bool,
 ) -> Evidence:
     ensure_can_upload(actor, incident)
 
@@ -188,9 +194,9 @@ def save_upload(
 
     evidence_type = validate_file(upload)
 
-    original_name = (
-        Path(upload.filename or "evidence").name
-    )
+    original_name = Path(
+        upload.filename or "evidence"
+    ).name
 
     (
         absolute_path,
@@ -229,8 +235,8 @@ def save_upload(
             stored_file_name=stored_name,
             relative_path=relative_path,
             mime_type=(
-                upload.content_type
-                or "application/octet-stream"
+                    upload.content_type
+                    or "application/octet-stream"
             ),
             file_size_bytes=file_size,
             sha256_hash=sha256.hexdigest(),
@@ -265,11 +271,15 @@ def save_upload(
 
         db.commit()
         db.refresh(evidence)
+
         return evidence
 
     except Exception:
+        db.rollback()
+
         if absolute_path.exists():
             absolute_path.unlink(missing_ok=True)
+
         raise
 
     finally:
@@ -277,20 +287,29 @@ def save_upload(
 
 
 def update_metadata(
-    db: Session,
-    actor: User,
-    incident: Incident,
-    evidence: Evidence,
-    payload: EvidenceMetadataUpdate,
+        db: Session,
+        actor: User,
+        incident: Incident,
+        evidence: Evidence,
+        payload: EvidenceMetadataUpdate,
 ) -> Evidence:
     ensure_can_upload(actor, incident)
 
-    update_data = payload.model_dump(exclude_unset=True)
+    update_data = payload.model_dump(
+        exclude_unset=True
+    )
 
     for field_name, value in update_data.items():
-        setattr(evidence, field_name, value)
+        setattr(
+            evidence,
+            field_name,
+            value,
+        )
 
-    repository.save(db, evidence)
+    repository.save(
+        db,
+        evidence,
+    )
 
     add_activity(
         db,
@@ -309,19 +328,23 @@ def update_metadata(
 
     db.commit()
     db.refresh(evidence)
+
     return evidence
 
 
 def delete_evidence(
-    db: Session,
-    actor: User,
-    incident: Incident,
-    evidence: Evidence,
+        db: Session,
+        actor: User,
+        incident: Incident,
+        evidence: Evidence,
 ) -> None:
-    ensure_can_delete(actor, evidence)
+    ensure_can_delete(
+        actor,
+        evidence,
+    )
 
     absolute_path = (
-        UPLOAD_ROOT / evidence.relative_path
+            UPLOAD_ROOT / evidence.relative_path
     ).resolve()
 
     try:
@@ -334,7 +357,10 @@ def delete_evidence(
 
     original_name = evidence.original_file_name
 
-    repository.delete(db, evidence)
+    repository.delete(
+        db,
+        evidence,
+    )
 
     add_activity(
         db,
@@ -351,12 +377,16 @@ def delete_evidence(
     db.commit()
 
     if absolute_path.exists():
-        absolute_path.unlink(missing_ok=True)
+        absolute_path.unlink(
+            missing_ok=True
+        )
 
 
-def absolute_file_path(evidence: Evidence) -> Path:
+def absolute_file_path(
+        evidence: Evidence,
+) -> Path:
     path = (
-        UPLOAD_ROOT / evidence.relative_path
+            UPLOAD_ROOT / evidence.relative_path
     ).resolve()
 
     try:
@@ -376,9 +406,33 @@ def absolute_file_path(evidence: Evidence) -> Path:
     return path
 
 
-def to_read(evidence: Evidence) -> EvidenceRead:
-    data = EvidenceRead.model_validate(evidence)
-    data.download_url = (
-        f"/api/v1/evidence/{evidence.id}/download"
+def to_read(
+        evidence: Evidence,
+) -> EvidenceRead:
+    return EvidenceRead.model_validate(
+        {
+            "id": evidence.id,
+            "incident_id": evidence.incident_id,
+            "uploaded_by_id": evidence.uploaded_by_id,
+            "uploaded_by": evidence.uploaded_by,
+            "evidence_type": evidence.evidence_type,
+            "original_file_name": evidence.original_file_name,
+            "stored_file_name": evidence.stored_file_name,
+            "mime_type": evidence.mime_type,
+            "file_size_bytes": evidence.file_size_bytes,
+            "sha256_hash": evidence.sha256_hash,
+            "description": evidence.description,
+            "captured_at": evidence.captured_at,
+            "latitude": evidence.latitude,
+            "longitude": evidence.longitude,
+            "is_anonymized": evidence.is_anonymized,
+            "is_enforcement_evidence": (
+                evidence.is_enforcement_evidence
+            ),
+            "created_at": evidence.created_at,
+            "download_url": (
+                f"/api/v1/evidence/"
+                f"{evidence.id}/download"
+            ),
+        }
     )
-    return data
