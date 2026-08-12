@@ -797,9 +797,10 @@ export default function IncidentsPage() {
                 loading={detailLoading}
                 canAssign={allowed("incidents.assign")}
                 canUploadEvidence={Boolean(
+                    user?.is_superuser ||
                     allowed("evidence.upload") ||
                     selectedIncident.created_by_id === user?.id ||
-                    selectedIncident.assigned_user_id === user?.id,
+                    selectedIncident.assigned_user_id === user?.id
                 )}
                 canDeleteEvidence={allowed("evidence.delete")}
                 onClose={() => setSelectedIncident(null)}

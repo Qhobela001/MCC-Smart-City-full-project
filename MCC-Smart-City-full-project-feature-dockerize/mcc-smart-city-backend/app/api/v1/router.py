@@ -1,9 +1,16 @@
 from fastapi import APIRouter
 
+from app.modules.ai_detections.router import (
+    router as ai_detections_router,
+)
 from app.modules.alerts.router import router as alerts_router
 from app.modules.assignments.router import router as assignments_router
 from app.modules.authentication.router import (
     router as authentication_router,
+)
+
+from app.modules.analytics.router import (
+    router as analytics_router,
 )
 from app.modules.departments.router import (
     router as departments_router,
@@ -26,7 +33,9 @@ from app.modules.users.router import router as users_router
 
 api_router = APIRouter()
 
+
 for router in [
+    analytics_router,
     authentication_router,
     departments_router,
     roles_router,
@@ -37,5 +46,6 @@ for router in [
     evidence_router,
     alerts_router,
     assignments_router,
+    ai_detections_router,
 ]:
     api_router.include_router(router)

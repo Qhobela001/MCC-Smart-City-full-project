@@ -4,9 +4,17 @@ from app.core.config import settings
 from app.core.security import get_password_hash
 from app.db.base import Base
 from app.db.session import SessionLocal, engine
+
+from app.modules.ai_detections.models import AIDetection
 from app.modules.alerts.models import Alert
-from app.modules.assignments.models import Assignment, AssignmentActivity, AssignmentEvidenceLink
-from app.modules.assignments.service import backfill_existing_incident_assignments
+from app.modules.assignments.models import (
+    Assignment,
+    AssignmentActivity,
+    AssignmentEvidenceLink,
+)
+from app.modules.assignments.service import (
+    backfill_existing_incident_assignments,
+)
 from app.modules.departments.models import Department
 from app.modules.evidence.models import Evidence
 from app.modules.incidents.models import (
@@ -21,6 +29,7 @@ from app.modules.users.models import User
 
 PERMISSIONS = [
     ("View Dashboard", "dashboard.view"),
+
     ("View Users", "users.view"),
     ("Create Users", "users.create"),
     ("Update Users", "users.update"),
@@ -56,12 +65,34 @@ PERMISSIONS = [
 
     ("View Alerts", "alerts.view"),
 
-    ("View Department Assignments", "assignments.view_department"),
-    ("View All Assignments", "assignments.view_all"),
-    ("Create Assignments", "assignments.create"),
-    ("Manage Department Assignments", "assignments.manage_department"),
-    ("Manage All Assignments", "assignments.manage_all"),
-    ("Verify Assignment Completion", "assignments.verify"),
+    (
+        "View Department Assignments",
+        "assignments.view_department",
+    ),
+    (
+        "View All Assignments",
+        "assignments.view_all",
+    ),
+    (
+        "Create Assignments",
+        "assignments.create",
+    ),
+    (
+        "Manage Department Assignments",
+        "assignments.manage_department",
+    ),
+    (
+        "Manage All Assignments",
+        "assignments.manage_all",
+    ),
+    (
+        "Verify Assignment Completion",
+        "assignments.verify",
+    ),
+
+    ("View AI Detections", "ai_detections.view"),
+    ("Ingest AI Detections", "ai_detections.create"),
+    ("Review AI Detections", "ai_detections.review"),
 
     ("View Reports", "reports.view"),
 ]
@@ -144,8 +175,8 @@ NAVIGATION_ITEMS = [
 
 
 def init_db() -> None:
-    # Incident and evidence models are imported above so their
-    # tables are registered before create_all executes.
+    # Importing all models above registers their tables
+    # with Base.metadata before create_all executes.
     Base.metadata.create_all(bind=engine)
 
     with SessionLocal() as db:
@@ -222,12 +253,12 @@ def init_db() -> None:
             )
 
         for (
-            label,
-            href,
-            icon,
-            section,
-            sort_order,
-            permission_code,
+                label,
+                href,
+                icon,
+                section,
+                sort_order,
+                permission_code,
         ) in NAVIGATION_ITEMS:
             item = db.scalar(
                 select(NavigationItem).where(
