@@ -118,6 +118,19 @@ class AIDetection(Base):
         index=True,
     )
 
+    # Canonical structured geographic reference.
+    gis_location_id = Column(
+        Integer,
+        ForeignKey(
+            "gis_locations.id",
+            ondelete="SET NULL",
+        ),
+        nullable=True,
+        index=True,
+    )
+
+    # Immutable-at-event snapshot fields.
+    # These remain useful even if a GIS location is renamed later.
     location_name = Column(
         String(255),
         nullable=True,
@@ -214,6 +227,12 @@ class AIDetection(Base):
         lazy="joined",
     )
 
+    gis_location = relationship(
+        "GISLocation",
+        foreign_keys=[gis_location_id],
+        lazy="joined",
+    )
+
     reviewed_by = relationship(
         "User",
         foreign_keys=[reviewed_by_id],
@@ -229,6 +248,11 @@ class AIDetection(Base):
         Index(
             "ix_ai_detections_camera_detected_at",
             "camera_identifier",
+            "detected_at",
+        ),
+        Index(
+            "ix_ai_detections_gis_detected_at",
+            "gis_location_id",
             "detected_at",
         ),
     )

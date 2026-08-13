@@ -13,6 +13,20 @@ from app.modules.ai_detections.models import (
     DetectionSource,
     DetectionType,
 )
+from app.modules.gis.models import LocationType
+
+
+class AIDetectionGISLocationSummary(BaseModel):
+    id: int
+    name: str
+    code: str
+    location_type: LocationType
+    latitude: float
+    longitude: float
+    zone_id: int | None
+    is_active: bool
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class AIDetectionCreate(BaseModel):
@@ -54,6 +68,11 @@ class AIDetectionCreate(BaseModel):
     model_version: str | None = Field(
         default=None,
         max_length=100,
+    )
+
+    gis_location_id: int | None = Field(
+        default=None,
+        ge=1,
     )
 
     location_name: str | None = Field(
@@ -141,6 +160,9 @@ class AIDetectionRead(BaseModel):
 
     model_name: str
     model_version: str | None
+
+    gis_location_id: int | None
+    gis_location: AIDetectionGISLocationSummary | None = None
 
     location_name: str | None
     latitude: float | None

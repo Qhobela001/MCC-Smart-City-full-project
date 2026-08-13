@@ -3,6 +3,7 @@ from sqlalchemy import select
 from app.core.config import settings
 from app.core.security import get_password_hash
 from app.db.base import Base
+from app.db.gis_link_schema import ensure_gis_event_links
 from app.db.session import SessionLocal, engine
 
 from app.modules.ai_detections.models import AIDetection
@@ -17,6 +18,10 @@ from app.modules.assignments.service import (
 )
 from app.modules.departments.models import Department
 from app.modules.evidence.models import Evidence
+from app.modules.gis.models import (
+    GISLocation,
+    GISZone,
+)
 from app.modules.incidents.models import (
     Incident,
     IncidentActivity,
@@ -33,35 +38,80 @@ PERMISSIONS = [
     ("View Users", "users.view"),
     ("Create Users", "users.create"),
     ("Update Users", "users.update"),
-    ("Reset User Passwords", "users.reset_password"),
+    (
+        "Reset User Passwords",
+        "users.reset_password",
+    ),
 
     ("View Departments", "departments.view"),
-    ("Create Departments", "departments.create"),
-    ("Update Departments", "departments.update"),
-    ("Delete Departments", "departments.delete"),
+    (
+        "Create Departments",
+        "departments.create",
+    ),
+    (
+        "Update Departments",
+        "departments.update",
+    ),
+    (
+        "Delete Departments",
+        "departments.delete",
+    ),
 
     ("View Roles", "roles.view"),
     ("Create Roles", "roles.create"),
     ("Update Roles", "roles.update"),
-    ("View Permissions", "permissions.view"),
+    (
+        "View Permissions",
+        "permissions.view",
+    ),
 
-    ("View Navigation", "navigation.view"),
-    ("Create Navigation", "navigation.create"),
-    ("Update Navigation", "navigation.update"),
+    (
+        "View Navigation",
+        "navigation.view",
+    ),
+    (
+        "Create Navigation",
+        "navigation.create",
+    ),
+    (
+        "Update Navigation",
+        "navigation.update",
+    ),
 
     ("View Cameras", "cameras.view"),
     ("Manage Cameras", "cameras.manage"),
 
     ("View Incidents", "incidents.view"),
-    ("Create Incidents", "incidents.create"),
-    ("Update Incidents", "incidents.update"),
-    ("Assign Incidents", "incidents.assign"),
-    ("Resolve Incidents", "incidents.resolve"),
-    ("Dismiss Incidents", "incidents.dismiss"),
+    (
+        "Create Incidents",
+        "incidents.create",
+    ),
+    (
+        "Update Incidents",
+        "incidents.update",
+    ),
+    (
+        "Assign Incidents",
+        "incidents.assign",
+    ),
+    (
+        "Resolve Incidents",
+        "incidents.resolve",
+    ),
+    (
+        "Dismiss Incidents",
+        "incidents.dismiss",
+    ),
 
     ("View Evidence", "evidence.view"),
-    ("Upload Evidence", "evidence.upload"),
-    ("Delete Evidence", "evidence.delete"),
+    (
+        "Upload Evidence",
+        "evidence.upload",
+    ),
+    (
+        "Delete Evidence",
+        "evidence.delete",
+    ),
 
     ("View Alerts", "alerts.view"),
 
@@ -90,9 +140,18 @@ PERMISSIONS = [
         "assignments.verify",
     ),
 
-    ("View AI Detections", "ai_detections.view"),
-    ("Ingest AI Detections", "ai_detections.create"),
-    ("Review AI Detections", "ai_detections.review"),
+    (
+        "View AI Detections",
+        "ai_detections.view",
+    ),
+    (
+        "Ingest AI Detections",
+        "ai_detections.create",
+    ),
+    (
+        "Review AI Detections",
+        "ai_detections.review",
+    ),
 
     ("View Reports", "reports.view"),
 ]
@@ -164,6 +223,14 @@ NAVIGATION_ITEMS = [
         "incidents.view",
     ),
     (
+        "City Map",
+        "/city-map",
+        "MapPin",
+        "Operations",
+        4,
+        "incidents.view",
+    ),
+    (
         "Reports",
         "/reports",
         "FileBarChart",
@@ -175,9 +242,12 @@ NAVIGATION_ITEMS = [
 
 
 def init_db() -> None:
-    # Importing all models above registers their tables
-    # with Base.metadata before create_all executes.
+    # Model imports above register all tables.
     Base.metadata.create_all(bind=engine)
+
+    # create_all does not alter already-existing tables.
+    # Upgrade the existing Docker volume safely and idempotently.
+    ensure_gis_event_links(engine)
 
     with SessionLocal() as db:
         for name, code in PERMISSIONS:
@@ -188,15 +258,14 @@ def init_db() -> None:
             )
 
             if permission is None:
-                db.add(
-                    Permission(
-                        name=name,
-                        code=code,
-                        description=name,
-                        is_system=True,
-                        is_active=True,
-                    )
+                permission = Permission(
+                    name=name,
+                    code=code,
+                    description=name,
+                    is_system=True,
+                    is_active=True,
                 )
+                db.add(permission)
             else:
                 permission.name = name
                 permission.description = name
@@ -224,7 +293,9 @@ def init_db() -> None:
             db.flush()
 
         role.permissions = list(
-            db.scalars(select(Permission)).all()
+            db.scalars(
+                select(Permission)
+            ).all()
         )
 
         admin = db.scalar(
@@ -237,12 +308,16 @@ def init_db() -> None:
         if admin is None:
             db.add(
                 User(
-                    full_name=settings.SUPERADMIN_NAME,
+                    full_name=(
+                        settings.SUPERADMIN_NAME
+                    ),
                     email=(
                         settings.SUPERADMIN_EMAIL.lower()
                     ),
-                    hashed_password=get_password_hash(
-                        settings.SUPERADMIN_PASSWORD
+                    hashed_password=(
+                        get_password_hash(
+                            settings.SUPERADMIN_PASSWORD
+                        )
                     ),
                     role_id=role.id,
                     is_superuser=True,
@@ -253,12 +328,12 @@ def init_db() -> None:
             )
 
         for (
-                label,
-                href,
-                icon,
-                section,
-                sort_order,
-                permission_code,
+            label,
+            href,
+            icon,
+            section,
+            sort_order,
+            permission_code,
         ) in NAVIGATION_ITEMS:
             item = db.scalar(
                 select(NavigationItem).where(
@@ -267,19 +342,32 @@ def init_db() -> None:
             )
 
             if item is None:
-                db.add(
-                    NavigationItem(
-                        label=label,
-                        href=href,
-                        icon=icon,
-                        section=section,
-                        sort_order=sort_order,
-                        permission_code=permission_code,
-                        is_system=True,
-                        is_active=True,
-                    )
+                item = NavigationItem(
+                    label=label,
+                    href=href,
+                    icon=icon,
+                    section=section,
+                    sort_order=sort_order,
+                    permission_code=(
+                        permission_code
+                    ),
+                    is_system=True,
+                    is_active=True,
                 )
+                db.add(item)
+            else:
+                item.label = label
+                item.icon = icon
+                item.section = section
+                item.sort_order = sort_order
+                item.permission_code = (
+                    permission_code
+                )
+                item.is_system = True
+                item.is_active = True
 
-        backfill_existing_incident_assignments(db)
+        backfill_existing_incident_assignments(
+            db
+        )
 
         db.commit()
