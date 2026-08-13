@@ -1,7 +1,13 @@
 "use client"
 
 import Link from "next/link"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react"
 import {
   Activity,
   AlertTriangle,
@@ -25,9 +31,7 @@ import {
 import { apiFetch } from "@/lib/api"
 import type {
   Alert,
-  AlertListResponse,
   Incident,
-  IncidentListResponse,
   IncidentStatus,
 } from "@/lib/types"
 
@@ -39,18 +43,45 @@ type DashboardStats = {
   unreadAlerts: number
 }
 
-const OPEN_STATUSES: IncidentStatus[] = [
-  "new",
-  "under_review",
-  "confirmed",
-  "assigned",
-  "in_progress",
-]
+
+type DashboardSummaryResponse = {
+  stats: {
+    open_incidents: number
+    critical_incidents: number
+    resolved_incidents: number
+    unread_alerts: number
+  }
+  status_counts: Record<IncidentStatus, number>
+  recent_incidents: Incident[]
+  recent_alerts: Alert[]
+  generated_at: string
+}
+
+
+type DashboardLoadMode =
+  | "initial"
+  | "manual"
+  | "poll"
+
+
+const INITIAL_STATUS_COUNTS: Record<IncidentStatus, number> = {
+  new: 0,
+  under_review: 0,
+  confirmed: 0,
+  assigned: 0,
+  in_progress: 0,
+  resolved: 0,
+  dismissed: 0,
+}
+
+
+const DASHBOARD_POLL_INTERVAL_MS = 10_000
 
 
 export default function DashboardPage() {
   const [recentIncidents, setRecentIncidents] = useState<Incident[]>([])
   const [recentAlerts, setRecentAlerts] = useState<Alert[]>([])
+
   const [stats, setStats] = useState<DashboardStats>({
     openIncidents: 0,
     criticalIncidents: 0,
@@ -58,117 +89,168 @@ export default function DashboardPage() {
     unreadAlerts: 0,
   })
 
+  const [statusCounts, setStatusCounts] = useState<
+    Record<IncidentStatus, number>
+  >(INITIAL_STATUS_COUNTS)
+
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState("")
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
 
-  const loadDashboard = useCallback(async (manual = false) => {
-    if (manual) {
-      setRefreshing(true)
-    } else {
-      setLoading(true)
-    }
+  const requestInFlight = useRef(false)
 
-    setError("")
 
-    try {
-      const [
-        recentResponse,
-        alertsResponse,
-        criticalResponse,
-        resolvedResponse,
-        ...openResponses
-      ] = await Promise.all([
-        apiFetch<IncidentListResponse>(
-            "/incidents?page=1&page_size=8",
-        ),
-        apiFetch<AlertListResponse>(
-            "/alerts?limit=6&offset=0",
-        ),
-        apiFetch<IncidentListResponse>(
-            "/incidents?page=1&page_size=1&priority=critical",
-        ),
-        apiFetch<IncidentListResponse>(
-            "/incidents?page=1&page_size=1&status=resolved",
-        ),
-        ...OPEN_STATUSES.map((status) =>
-            apiFetch<IncidentListResponse>(
-                `/incidents?page=1&page_size=1&status=${status}`,
-            ),
-        ),
-      ])
+  const loadDashboard = useCallback(
+    async (
+      mode: DashboardLoadMode = "initial",
+    ) => {
+      if (requestInFlight.current) {
+        return
+      }
 
-      const openIncidents = openResponses.reduce(
-          (total, response) => total + response.total,
-          0,
-      )
+      requestInFlight.current = true
 
-      setRecentIncidents(recentResponse.items)
-      setRecentAlerts(alertsResponse.items)
+      if (mode === "initial") {
+        setLoading(true)
+      }
 
-      setStats({
-        openIncidents,
-        criticalIncidents: criticalResponse.total,
-        resolvedIncidents: resolvedResponse.total,
-        unreadAlerts: alertsResponse.unread_count,
-      })
+      if (mode === "manual") {
+        setRefreshing(true)
+      }
 
-      setLastUpdated(new Date())
-    } catch (requestError) {
-      setError(
+      try {
+        const response =
+          await apiFetch<DashboardSummaryResponse>(
+            "/dashboard/summary",
+          )
+
+        setRecentIncidents(
+          response.recent_incidents,
+        )
+
+        setRecentAlerts(
+          response.recent_alerts,
+        )
+
+        setStats({
+          openIncidents:
+            response.stats.open_incidents,
+          criticalIncidents:
+            response.stats.critical_incidents,
+          resolvedIncidents:
+            response.stats.resolved_incidents,
+          unreadAlerts:
+            response.stats.unread_alerts,
+        })
+
+        setStatusCounts(
+          response.status_counts,
+        )
+
+        const generatedAt = new Date(
+          response.generated_at,
+        )
+
+        setLastUpdated(
+          Number.isNaN(generatedAt.getTime())
+            ? new Date()
+            : generatedAt,
+        )
+
+        setError("")
+      } catch (requestError) {
+        setError(
           requestError instanceof Error
-              ? requestError.message
-              : "Unable to load the command centre dashboard.",
-      )
-    } finally {
-      setLoading(false)
-      setRefreshing(false)
-    }
-  }, [])
+            ? requestError.message
+            : "Unable to load the command centre dashboard.",
+        )
+      } finally {
+        requestInFlight.current = false
+
+        if (mode === "initial") {
+          setLoading(false)
+        }
+
+        if (mode === "manual") {
+          setRefreshing(false)
+        }
+      }
+    },
+    [],
+  )
+
 
   useEffect(() => {
-    void loadDashboard()
-  }, [loadDashboard])
+    void loadDashboard("initial")
 
-  const incidentStatusBreakdown = useMemo(() => {
-    const counts = new Map<IncidentStatus, number>()
-
-    for (const incident of recentIncidents) {
-      counts.set(
-          incident.status,
-          (counts.get(incident.status) ?? 0) + 1,
-      )
+    const pollDashboard = () => {
+      if (
+        document.visibilityState === "visible"
+      ) {
+        void loadDashboard("poll")
+      }
     }
 
-    return [
+    const intervalId = window.setInterval(
+      pollDashboard,
+      DASHBOARD_POLL_INTERVAL_MS,
+    )
+
+    const handleVisibilityChange = () => {
+      if (
+        document.visibilityState === "visible"
+      ) {
+        void loadDashboard("poll")
+      }
+    }
+
+    document.addEventListener(
+      "visibilitychange",
+      handleVisibilityChange,
+    )
+
+    return () => {
+      window.clearInterval(intervalId)
+
+      document.removeEventListener(
+        "visibilitychange",
+        handleVisibilityChange,
+      )
+    }
+  }, [loadDashboard])
+
+
+  const incidentStatusBreakdown = useMemo(
+    () => [
       {
         status: "new" as IncidentStatus,
         label: "New",
-        value: counts.get("new") ?? 0,
+        value: statusCounts.new,
       },
       {
         status: "under_review" as IncidentStatus,
         label: "Under review",
-        value: counts.get("under_review") ?? 0,
+        value: statusCounts.under_review,
       },
       {
         status: "assigned" as IncidentStatus,
         label: "Assigned",
-        value: counts.get("assigned") ?? 0,
+        value: statusCounts.assigned,
       },
       {
         status: "in_progress" as IncidentStatus,
         label: "In progress",
-        value: counts.get("in_progress") ?? 0,
+        value: statusCounts.in_progress,
       },
       {
         status: "resolved" as IncidentStatus,
         label: "Resolved",
-        value: counts.get("resolved") ?? 0,
+        value: statusCounts.resolved,
       },
-    ]
-  }, [recentIncidents])
+    ],
+    [statusCounts],
+  )
 
   if (loading) {
     return (
@@ -227,7 +309,7 @@ export default function DashboardPage() {
               <div className="flex flex-wrap gap-2">
                 <button
                     type="button"
-                    onClick={() => void loadDashboard(true)}
+                    onClick={() => void loadDashboard("manual")}
                     disabled={refreshing}
                     className="inline-flex h-10 items-center gap-2 rounded-md border bg-background px-4 text-sm font-medium transition hover:bg-muted disabled:opacity-50"
                 >

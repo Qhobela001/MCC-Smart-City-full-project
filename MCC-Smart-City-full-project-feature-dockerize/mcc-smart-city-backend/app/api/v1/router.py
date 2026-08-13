@@ -4,13 +4,15 @@ from app.modules.ai_detections.router import (
     router as ai_detections_router,
 )
 from app.modules.alerts.router import router as alerts_router
+from app.modules.analytics.router import (
+    router as analytics_router,
+)
 from app.modules.assignments.router import router as assignments_router
 from app.modules.authentication.router import (
     router as authentication_router,
 )
-
-from app.modules.analytics.router import (
-    router as analytics_router,
+from app.modules.dashboard.router import (
+    router as dashboard_router,
 )
 from app.modules.departments.router import (
     router as departments_router,
@@ -47,5 +49,6 @@ for router in [
     alerts_router,
     assignments_router,
     ai_detections_router,
+    dashboard_router,
 ]:
     api_router.include_router(router)
