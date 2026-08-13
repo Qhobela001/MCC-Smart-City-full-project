@@ -2,6 +2,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.modules.gis.models import LocationType
 from app.modules.incidents.models import (
     IncidentPriority,
     IncidentSource,
@@ -27,6 +28,19 @@ class UserSummary(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class IncidentGISLocationSummary(BaseModel):
+    id: int
+    name: str
+    code: str
+    location_type: LocationType
+    latitude: float
+    longitude: float
+    zone_id: int | None
+    is_active: bool
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class IncidentCreate(BaseModel):
     incident_type: IncidentType
     title: str = Field(min_length=3, max_length=200)
@@ -36,6 +50,11 @@ class IncidentCreate(BaseModel):
 
     department_id: int | None = None
     assigned_user_id: int | None = None
+
+    gis_location_id: int | None = Field(
+        default=None,
+        ge=1,
+    )
 
     location_name: str | None = Field(default=None, max_length=255)
     latitude: float | None = Field(default=None, ge=-90, le=90)
@@ -62,6 +81,12 @@ class IncidentUpdate(BaseModel):
     )
     priority: IncidentPriority | None = None
     department_id: int | None = None
+
+    gis_location_id: int | None = Field(
+        default=None,
+        ge=1,
+    )
+
     location_name: str | None = Field(default=None, max_length=255)
     latitude: float | None = Field(default=None, ge=-90, le=90)
     longitude: float | None = Field(default=None, ge=-180, le=180)
@@ -122,6 +147,9 @@ class IncidentRead(BaseModel):
     department: DepartmentSummary | None = None
     assigned_user: UserSummary | None = None
     created_by: UserSummary
+
+    gis_location_id: int | None
+    gis_location: IncidentGISLocationSummary | None = None
 
     location_name: str | None
     latitude: float | None

@@ -111,6 +111,18 @@ class Incident(Base):
         index=True,
     )
 
+    # Canonical structured geographic reference.
+    gis_location_id = Column(
+        Integer,
+        ForeignKey(
+            "gis_locations.id",
+            ondelete="SET NULL",
+        ),
+        nullable=True,
+        index=True,
+    )
+
+    # Event snapshot fields remain for history/audit.
     location_name = Column(String(255), nullable=True)
     latitude = Column(Float, nullable=True)
     longitude = Column(Float, nullable=True)
@@ -150,6 +162,11 @@ class Incident(Base):
     created_by = relationship(
         "User",
         foreign_keys=[created_by_id],
+        lazy="joined",
+    )
+    gis_location = relationship(
+        "GISLocation",
+        foreign_keys=[gis_location_id],
         lazy="joined",
     )
     evidence = relationship(
