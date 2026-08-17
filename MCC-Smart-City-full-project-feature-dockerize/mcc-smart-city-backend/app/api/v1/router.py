@@ -12,6 +12,7 @@ from app.modules.devices.router import router as devices_router
 from app.modules.evidence.router import router as evidence_router
 from app.modules.gis.router import router as gis_router
 from app.modules.incidents.router import router as incidents_router
+from app.modules.live_streams.router import router as live_streams_router
 from app.modules.navigation.router import router as navigation_router
 from app.modules.permissions.router import router as permissions_router
 from app.modules.roles.router import router as roles_router
@@ -38,5 +39,6 @@ for router in [
     gis_router,
     cameras_router,
     devices_router,
+    live_streams_router,
 ]:
     api_router.include_router(router)

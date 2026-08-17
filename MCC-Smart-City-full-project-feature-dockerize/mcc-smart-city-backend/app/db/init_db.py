@@ -200,7 +200,7 @@ NAVIGATION_ITEMS = [
     ),
     (
         "Live Monitoring",
-        "/monitoring/live",
+        "/live-feeds",
         "Cctv",
         "Operations",
         1,
@@ -229,6 +229,14 @@ NAVIGATION_ITEMS = [
         "Operations",
         4,
         "incidents.view",
+    ),
+    (
+        "Camera & Devices",
+        "/devices",
+        "Network",
+        "Operations",
+        5,
+        "cameras.view",
     ),
     (
         "Reports",
@@ -327,6 +335,38 @@ def init_db() -> None:
                 )
             )
 
+        # Normalize Live Monitoring navigation. Older development seeds used
+        # /monitoring/live while the real Next.js route is /live-feeds. During
+        # development both rows may already exist, so keep the oldest row as
+        # the canonical item and deactivate every duplicate without deleting
+        # rows that may already be referenced by role/navigation relationships.
+        live_monitoring_rows = list(
+            db.scalars(
+                select(NavigationItem)
+                .where(
+                    (NavigationItem.label == "Live Monitoring")
+                    | NavigationItem.href.in_(
+                        ["/monitoring/live", "/live-feeds"]
+                    )
+                )
+                .order_by(NavigationItem.id.asc())
+            ).all()
+        )
+
+        if live_monitoring_rows:
+            canonical_live_monitoring = live_monitoring_rows[0]
+            canonical_live_monitoring.label = "Live Monitoring"
+            canonical_live_monitoring.href = "/live-feeds"
+            canonical_live_monitoring.icon = "Cctv"
+            canonical_live_monitoring.section = "Operations"
+            canonical_live_monitoring.sort_order = 1
+            canonical_live_monitoring.permission_code = "cameras.view"
+            canonical_live_monitoring.is_system = True
+            canonical_live_monitoring.is_active = True
+
+            for duplicate in live_monitoring_rows[1:]:
+                duplicate.is_active = False
+
         for (
             label,
             href,
@@ -336,8 +376,11 @@ def init_db() -> None:
             permission_code,
         ) in NAVIGATION_ITEMS:
             item = db.scalar(
-                select(NavigationItem).where(
-                    NavigationItem.href == href
+                select(NavigationItem)
+                .where(NavigationItem.href == href)
+                .order_by(
+                    NavigationItem.is_active.desc(),
+                    NavigationItem.id.asc(),
                 )
             )
 

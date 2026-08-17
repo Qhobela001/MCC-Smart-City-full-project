@@ -1,399 +1,315 @@
 "use client"
 
-import { useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import {
-    ChevronDown,
-    ChevronLeft,
-    ChevronRight,
-    ChevronUp,
-    Grid2x2,
-    Grid3x3,
-    Home,
-    Maximize2,
-    Minus,
-    Plus,
-    Scan,
-    ScanLine,
-    ShieldCheck,
-    Square,
-    UsersRound,
-    VideoOff,
-    Wifi,
+  Cctv,
+  Grid2X2,
+  Grid3X3,
+  Loader2,
+  MonitorUp,
+  RefreshCw,
+  Search,
+  ShieldCheck,
+  Square,
 } from "lucide-react"
-import { Card, CardContent } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Switch } from "@/components/ui/switch"
-import { cameras, type Camera, type CameraStatus } from "@/lib/mock-data"
-import { cn } from "@/lib/utils"
 
-const statusStyles: Record<CameraStatus, string> = {
-    online: "bg-chart-2/15 text-chart-2 border-chart-2/30",
-    degraded: "bg-chart-3/15 text-chart-3 border-chart-3/30",
-    offline: "bg-destructive/15 text-destructive border-destructive/30",
-}
+import { apiFetch } from "@/lib/api"
+import { LiveCameraTile } from "@/components/live-monitoring/live-camera-tile"
+import type {
+  LiveCamera,
+  LiveStreamListResponse,
+} from "@/components/live-monitoring/types"
 
-const statusDot: Record<CameraStatus, string> = {
-    online: "bg-chart-2",
-    degraded: "bg-chart-3",
-    offline: "bg-destructive",
-}
 
-type ViewMode = "single" | "2x2" | "4x4"
+type LayoutCount = 1 | 4 | 9 | 16
 
-type AiKey = "plates" | "pedestrians" | "wrongWay" | "plateMask"
-
-const aiToggleConfig: { key: AiKey; label: string; icon: typeof Scan; hint: string }[] = [
-    { key: "plates", label: "License Plate Reading", icon: ScanLine, hint: "OCR of vehicle plates" },
-    { key: "pedestrians", label: "Pedestrian Detection", icon: UsersRound, hint: "Bounding boxes on people" },
-    { key: "wrongWay", label: "Wrong-Way Drivers", icon: Scan, hint: "Flag reverse-direction vehicles" },
-    { key: "plateMask", label: "License Plate Mask", icon: ShieldCheck, hint: "Blur plates for privacy" },
+const layoutOptions: Array<{
+  count: LayoutCount
+  label: string
+  icon: typeof Square
+}> = [
+  { count: 1, label: "1", icon: Square },
+  { count: 4, label: "4", icon: Grid2X2 },
+  { count: 9, label: "9", icon: Grid3X3 },
+  { count: 16, label: "16", icon: MonitorUp },
 ]
 
+function gridClass(count: LayoutCount) {
+  if (count === 1) return "grid-cols-1"
+  if (count === 4) return "grid-cols-1 xl:grid-cols-2"
+  if (count === 9) return "grid-cols-1 md:grid-cols-2 2xl:grid-cols-3"
+  return "grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
+}
+
+function fillSlots(
+  existing: Array<string | null>,
+  cameras: LiveCamera[],
+  count: LayoutCount,
+) {
+  const validIdentifiers = new Set(
+    cameras.map((camera) => camera.camera_identifier),
+  )
+  const next: Array<string | null> = existing
+    .filter((identifier) => !identifier || validIdentifiers.has(identifier))
+    .slice(0, count)
+
+  const used = new Set(next.filter(Boolean) as string[])
+
+  for (const camera of cameras) {
+    if (next.length >= count) break
+    if (used.has(camera.camera_identifier)) continue
+    next.push(camera.camera_identifier)
+    used.add(camera.camera_identifier)
+  }
+
+  while (next.length < count) next.push(null)
+  return next
+}
+
 export default function LiveFeedsPage() {
-    const [viewMode, setViewMode] = useState<ViewMode>("single")
-    const [selectedId, setSelectedId] = useState<string>(cameras[0].id)
-    const [ai, setAi] = useState<Record<AiKey, boolean>>({
-        plates: false,
-        pedestrians: true,
-        wrongWay: false,
-        plateMask: false,
+  const [data, setData] = useState<LiveStreamListResponse | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [search, setSearch] = useState("")
+  const [layoutCount, setLayoutCount] = useState<LayoutCount>(4)
+  const [slots, setSlots] = useState<Array<string | null>>([])
+
+  const load = useCallback(async (showSpinner = false) => {
+    if (showSpinner) setLoading(true)
+
+    try {
+      const response = await apiFetch<LiveStreamListResponse>(
+        "/live-streams",
+      )
+      setData(response)
+      setError(null)
+      setSlots((current) =>
+        fillSlots(current, response.items, layoutCount),
+      )
+    } catch (reason) {
+      setError(
+        reason instanceof Error
+          ? reason.message
+          : "Unable to load live cameras.",
+      )
+    } finally {
+      setLoading(false)
+    }
+  }, [layoutCount])
+
+  useEffect(() => {
+    void load(true)
+    const interval = window.setInterval(() => void load(false), 15000)
+    return () => window.clearInterval(interval)
+  }, [load])
+
+  useEffect(() => {
+    if (!data) return
+    setSlots((current) => fillSlots(current, data.items, layoutCount))
+  }, [layoutCount, data])
+
+  const cameras = data?.items ?? []
+
+  const filteredCameras = useMemo(() => {
+    const query = search.trim().toLowerCase()
+    if (!query) return cameras
+
+    return cameras.filter((camera) =>
+      [
+        camera.name,
+        camera.camera_identifier,
+        camera.location_name || "",
+        camera.assigned_jetson_identifier || "",
+      ].some((value) => value.toLowerCase().includes(query)),
+    )
+  }, [cameras, search])
+
+  const cameraMap = useMemo(
+    () => new Map(cameras.map((camera) => [camera.camera_identifier, camera])),
+    [cameras],
+  )
+
+  const configuredCount = cameras.filter((camera) => camera.stream_configured).length
+  const readyCount = cameras.filter((camera) => camera.gateway_ready).length
+
+  function changeLayout(count: LayoutCount) {
+    setLayoutCount(count)
+    setSlots((current) => fillSlots(current, cameras, count))
+  }
+
+  function changeSlot(index: number, identifier: string) {
+    setSlots((current) => {
+      const next = [...current]
+      next[index] = identifier || null
+      return next
     })
-    const [ptzLog, setPtzLog] = useState<string>("Centered · 1.0x")
+  }
 
-    const active = cameras.find((c) => c.id === selectedId) ?? cameras[0]
-
-    const gridCameras = useMemo(() => {
-        if (viewMode === "single") return [active]
-        if (viewMode === "2x2") return cameras.slice(0, 4)
-        return cameras // 4x4 — we have 6 cameras, show them all
-    }, [viewMode, active])
-
-    function toggleAi(key: AiKey) {
-        setAi((prev) => ({ ...prev, [key]: !prev[key] }))
-    }
-
-    return (
-        <>
-            <div className="flex flex-wrap items-end justify-between gap-3">
-                <div>
-                    <h1 className="text-xl font-semibold text-foreground">Live Feeds</h1>
-                    <p className="text-sm text-muted-foreground">
-                        Real-time CCTV monitoring · {cameras.length} sources
-                    </p>
-                </div>
-
-                {/* view mode switch */}
-                <div className="flex items-center gap-1 rounded-md border border-border bg-card p-1">
-                    <ViewButton active={viewMode === "single"} onClick={() => setViewMode("single")} icon={Square} label="Single" />
-                    <ViewButton active={viewMode === "2x2"} onClick={() => setViewMode("2x2")} icon={Grid2x2} label="2x2" />
-                    <ViewButton active={viewMode === "4x4"} onClick={() => setViewMode("4x4")} icon={Grid3x3} label="Grid" />
-                </div>
+  return (
+    <div className="flex min-h-0 flex-col gap-4">
+      <section className="rounded-xl border border-border bg-card p-4 shadow-sm md:p-5">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-center">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <Cctv className="size-5 text-primary" />
+              <h2 className="text-lg font-semibold">Live Monitoring</h2>
             </div>
+            <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
+              Authorized control-room view of registered MCC cameras. Live video is delivered by the HQ stream gateway while Jetson AI processing continues independently from the same source stream.
+            </p>
+          </div>
 
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_20rem]">
-                {/* main viewport area */}
-                <div className="flex flex-col gap-4">
-                    <div
-                        className={cn(
-                            "grid gap-3",
-                            viewMode === "single" && "grid-cols-1",
-                            viewMode === "2x2" && "grid-cols-1 sm:grid-cols-2",
-                            viewMode === "4x4" && "grid-cols-2 lg:grid-cols-3",
-                        )}
-                    >
-                        {gridCameras.map((cam) => (
-                            <CameraFeed
-                                key={cam.id}
-                                camera={cam}
-                                ai={ai}
-                                large={viewMode === "single"}
-                                selected={cam.id === selectedId}
-                                onSelect={() => setSelectedId(cam.id)}
-                            />
-                        ))}
-                    </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-2 rounded-full border border-border px-3 py-1.5 text-xs text-muted-foreground">
+              <ShieldCheck className="size-3.5" />
+              Authorized viewing
+            </span>
+            <span
+              className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium ${
+                data?.gateway_available
+                  ? "bg-emerald-500/15 text-emerald-400"
+                  : "bg-amber-500/15 text-amber-400"
+              }`}
+            >
+              <span className="size-2 rounded-full bg-current" />
+              {data?.gateway_available
+                ? "Stream gateway online"
+                : "Stream gateway offline"}
+            </span>
+            <button
+              type="button"
+              onClick={() => void load(true)}
+              className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm font-medium transition hover:bg-accent"
+            >
+              <RefreshCw className="size-4" />
+              Refresh
+            </button>
+          </div>
+        </div>
 
-                    {/* camera strip for quick selection */}
-                    <div className="flex gap-2 overflow-x-auto pb-1">
-                        {cameras.map((cam) => (
-                            <button
-                                key={cam.id}
-                                onClick={() => setSelectedId(cam.id)}
-                                className={cn(
-                                    "flex shrink-0 items-center gap-2 rounded-md border px-3 py-1.5 text-xs transition-colors",
-                                    cam.id === selectedId
-                                        ? "border-primary bg-primary/10 text-foreground"
-                                        : "border-border bg-card text-muted-foreground hover:text-foreground",
-                                )}
-                            >
-                                <span className={cn("size-2 rounded-full", statusDot[cam.status])} />
-                                {cam.id}
-                            </button>
-                        ))}
-                    </div>
-                </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="rounded-lg bg-muted/45 p-3">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Registered cameras</p>
+            <p className="mt-1 text-xl font-semibold">{cameras.length}</p>
+          </div>
+          <div className="rounded-lg bg-muted/45 p-3">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Stream configured</p>
+            <p className="mt-1 text-xl font-semibold">{configuredCount}</p>
+          </div>
+          <div className="rounded-lg bg-muted/45 p-3">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Live paths ready</p>
+            <p className="mt-1 text-xl font-semibold">{readyCount}</p>
+          </div>
+          <div className="rounded-lg bg-muted/45 p-3">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Gateway ready</p>
+            <p className="mt-1 text-xl font-semibold">
+              {data?.gateway_available ? 1 : 0}
+            </p>
+          </div>
+        </div>
+      </section>
 
-                {/* control sidebar */}
-                <div className="flex flex-col gap-4">
-                    {/* active camera info */}
-                    <Card>
-                        <CardContent className="space-y-1 p-4">
-                            <div className="flex items-center justify-between">
-                                <span className="font-mono text-xs text-muted-foreground">{active.id}</span>
-                                <Badge variant="outline" className={cn("capitalize", statusStyles[active.status])}>
-                                    {active.status}
-                                </Badge>
-                            </div>
-                            <div className="text-base font-semibold text-foreground">{active.name}</div>
-                            <div className="text-sm text-muted-foreground">{active.zone}</div>
-                            <div className="flex items-center gap-1 pt-1 font-mono text-xs text-muted-foreground">
-                                <Wifi className="size-3.5" />
-                                Signal {active.signal}%
-                            </div>
-                        </CardContent>
-                    </Card>
+      <section className="flex flex-col gap-3 rounded-xl border border-border bg-card p-3 shadow-sm lg:flex-row lg:items-center">
+        <div className="relative min-w-0 flex-1 lg:max-w-md">
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search cameras, locations or Jetson…"
+            className="h-10 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm outline-none ring-offset-background placeholder:text-muted-foreground focus:ring-2 focus:ring-ring"
+          />
+        </div>
 
-                    {/* AI analytics toggles */}
-                    <Card>
-                        <CardContent className="space-y-3 p-4">
-                            <div className="text-sm font-semibold text-foreground">AI Analytics</div>
-                            {aiToggleConfig.map((t) => (
-                                <label
-                                    key={t.key}
-                                    htmlFor={t.key}
-                                    className="flex cursor-pointer items-center justify-between gap-3"
-                                >
-                  <span className="flex items-start gap-2">
-                    <t.icon className="mt-0.5 size-4 text-muted-foreground" />
-                    <span>
-                      <span className="block text-sm text-foreground">{t.label}</span>
-                      <span className="block text-xs text-muted-foreground">{t.hint}</span>
-                    </span>
-                  </span>
-                                    <Switch id={t.key} checked={ai[t.key]} onCheckedChange={() => toggleAi(t.key)} />
-                                </label>
-                            ))}
-                        </CardContent>
-                    </Card>
-
-                    {/* PTZ controls */}
-                    <Card>
-                        <CardContent className="space-y-3 p-4">
-                            <div className="flex items-center justify-between">
-                                <span className="text-sm font-semibold text-foreground">PTZ Control</span>
-                                <span className="font-mono text-[11px] text-muted-foreground">{ptzLog}</span>
-                            </div>
-
-                            {/* directional pad */}
-                            <div className="mx-auto grid w-32 grid-cols-3 grid-rows-3 gap-1">
-                                <span />
-                                <PtzButton icon={ChevronUp} onClick={() => setPtzLog("Tilt up")} label="Tilt up" />
-                                <span />
-                                <PtzButton icon={ChevronLeft} onClick={() => setPtzLog("Pan left")} label="Pan left" />
-                                <PtzButton icon={Home} onClick={() => setPtzLog("Centered · 1.0x")} label="Home" />
-                                <PtzButton icon={ChevronRight} onClick={() => setPtzLog("Pan right")} label="Pan right" />
-                                <span />
-                                <PtzButton icon={ChevronDown} onClick={() => setPtzLog("Tilt down")} label="Tilt down" />
-                                <span />
-                            </div>
-
-                            {/* zoom */}
-                            <div className="flex items-center gap-2">
-                                <Button size="sm" variant="outline" className="flex-1" onClick={() => setPtzLog("Zoom out")}>
-                                    <Minus className="size-3.5" />
-                                    Zoom
-                                </Button>
-                                <Button size="sm" variant="outline" className="flex-1" onClick={() => setPtzLog("Zoom in")}>
-                                    <Plus className="size-3.5" />
-                                    Zoom
-                                </Button>
-                            </div>
-
-                            {/* presets */}
-                            <div>
-                                <div className="mb-1.5 text-xs text-muted-foreground">Presets</div>
-                                <div className="flex flex-wrap gap-1.5">
-                                    {["Entrance", "Junction", "Wide", "Gate"].map((preset) => (
-                                        <button
-                                            key={preset}
-                                            onClick={() => setPtzLog(`Preset · ${preset}`)}
-                                            className="rounded border border-border bg-card px-2 py-1 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
-                                        >
-                                            {preset}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
-            </div>
-        </>
-    )
-}
-
-function ViewButton({
-                        active,
-                        onClick,
-                        icon: Icon,
-                        label,
-                    }: {
-    active: boolean
-    onClick: () => void
-    icon: typeof Square
-    label: string
-}) {
-    return (
-        <button
-            onClick={onClick}
-            className={cn(
-                "flex items-center gap-1.5 rounded px-2.5 py-1.5 text-xs font-medium transition-colors",
-                active ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
-            )}
-            aria-pressed={active}
-        >
-            <Icon className="size-4" />
-            <span className="hidden sm:inline">{label}</span>
-        </button>
-    )
-}
-
-function PtzButton({
-                       icon: Icon,
-                       onClick,
-                       label,
-                   }: {
-    icon: typeof ChevronUp
-    onClick: () => void
-    label: string
-}) {
-    return (
-        <button
-            onClick={onClick}
-            aria-label={label}
-            className="flex items-center justify-center rounded-md border border-border bg-card py-2 text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground active:bg-accent"
-        >
-            <Icon className="size-4" />
-        </button>
-    )
-}
-
-function CameraFeed({
-                        camera,
-                        ai,
-                        large,
-                        selected,
-                        onSelect,
-                    }: {
-    camera: Camera
-    ai: Record<AiKey, boolean>
-    large: boolean
-    selected: boolean
-    onSelect: () => void
-}) {
-    const ref = useRef<HTMLDivElement>(null)
-
-    function goFullscreen(e: React.MouseEvent) {
-        e.stopPropagation()
-        const el = ref.current
-        if (!el) return
-        if (document.fullscreenElement) {
-            document.exitFullscreen()
-        } else {
-            el.requestFullscreen?.()
-        }
-    }
-
-    const offline = camera.status === "offline"
-
-    return (
-        <div
-            ref={ref}
-            onClick={onSelect}
-            className={cn(
-                "group relative cursor-pointer overflow-hidden rounded-lg border bg-muted",
-                large ? "aspect-video" : "aspect-video",
-                selected ? "border-primary ring-1 ring-primary" : "border-border",
-            )}
-        >
-            {offline ? (
-                <div className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground">
-                    <VideoOff className="size-7" />
-                    <span className="text-sm">Signal lost</span>
-                </div>
-            ) : (
-                <>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                        src={camera.feed || "/placeholder.svg"}
-                        alt={`Live feed from ${camera.name}`}
-                        className={cn(
-                            "h-full w-full object-cover",
-                            camera.status === "degraded" && "opacity-80",
-                        )}
-                    />
-
-                    {/* AI overlays (illustrative) */}
-                    {ai.pedestrians && (
-                        <>
-                            <DetectionBox className="left-[18%] top-[45%] h-[38%] w-[12%]" label="Pedestrian 0.94" tone="chart-2" />
-                            <DetectionBox className="left-[62%] top-[52%] h-[30%] w-[10%]" label="Pedestrian 0.88" tone="chart-2" />
-                        </>
-                    )}
-                    {ai.plates && (
-                        <DetectionBox className="left-[40%] top-[68%] h-[8%] w-[16%]" label="A 1234 · LS" tone="chart-3" />
-                    )}
-                    {ai.plateMask && (
-                        <div className="absolute left-[40%] top-[68%] h-[8%] w-[16%] rounded-sm bg-foreground/80 backdrop-blur-sm" />
-                    )}
-                    {ai.wrongWay && (
-                        <DetectionBox className="left-[68%] top-[30%] h-[24%] w-[14%]" label="Wrong-way!" tone="destructive" />
-                    )}
-
-                    {/* live badge */}
-                    <span className="absolute left-2 top-2 flex items-center gap-1.5 rounded bg-black/50 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-white backdrop-blur">
-            <span className="size-1.5 animate-pulse rounded-full bg-destructive" />
-            Live
+        <div className="flex items-center gap-2 lg:ml-auto">
+          <span className="mr-1 text-xs font-medium text-muted-foreground">
+            Wall layout
           </span>
-                </>
-            )}
-
-            {/* label bar */}
-            <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 bg-gradient-to-t from-black/70 to-transparent px-2 py-1.5">
-        <span className="truncate text-xs font-medium text-white">
-          {camera.id} · {camera.name}
-        </span>
-                <button
-                    onClick={goFullscreen}
-                    aria-label={`Fullscreen ${camera.name}`}
-                    className="shrink-0 rounded bg-black/40 p-1 text-white opacity-0 transition-opacity hover:bg-black/70 group-hover:opacity-100"
-                >
-                    <Maximize2 className="size-3.5" />
-                </button>
-            </div>
+          {layoutOptions.map(({ count, label, icon: Icon }) => (
+            <button
+              key={count}
+              type="button"
+              onClick={() => changeLayout(count)}
+              title={`${count}-camera layout`}
+              className={`inline-flex h-9 min-w-9 items-center justify-center gap-1 rounded-md border px-2 text-xs font-semibold transition ${
+                layoutCount === count
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-border text-muted-foreground hover:bg-accent hover:text-foreground"
+              }`}
+            >
+              <Icon className="size-3.5" />
+              {label}
+            </button>
+          ))}
         </div>
-    )
-}
+      </section>
 
-function DetectionBox({
-                          className,
-                          label,
-                          tone,
-                      }: {
-    className: string
-    label: string
-    tone: "chart-2" | "chart-3" | "destructive"
-}) {
-    const borderTone =
-        tone === "chart-2" ? "border-chart-2" : tone === "chart-3" ? "border-chart-3" : "border-destructive"
-    const bgTone =
-        tone === "chart-2" ? "bg-chart-2" : tone === "chart-3" ? "bg-chart-3" : "bg-destructive"
-    return (
-        <div className={cn("absolute rounded-sm border-2", borderTone, className)}>
-      <span className={cn("absolute -top-4 left-0 rounded-sm px-1 text-[9px] font-semibold text-white", bgTone)}>
-        {label}
-      </span>
+      {error && (
+        <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+          {error}
         </div>
-    )
+      )}
+
+      {loading && !data ? (
+        <div className="flex min-h-80 items-center justify-center rounded-xl border border-border bg-card">
+          <Loader2 className="size-7 animate-spin text-primary" />
+        </div>
+      ) : cameras.length === 0 ? (
+        <div className="flex min-h-80 flex-col items-center justify-center rounded-xl border border-dashed border-border bg-card px-6 text-center">
+          <Cctv className="size-10 text-muted-foreground" />
+          <h3 className="mt-4 font-semibold">No cameras registered</h3>
+          <p className="mt-1 max-w-md text-sm text-muted-foreground">
+            Register field cameras in Camera &amp; Device Management before using the control-room wall.
+          </p>
+        </div>
+      ) : (
+        <div className={`grid min-h-0 gap-3 ${gridClass(layoutCount)}`}>
+          {slots.map((identifier, index) => {
+            const camera = identifier ? cameraMap.get(identifier) : undefined
+            const availableChoices = filteredCameras.filter(
+              (candidate) =>
+                candidate.camera_identifier === identifier ||
+                !slots.includes(candidate.camera_identifier),
+            )
+
+            return (
+              <div key={`${index}-${identifier || "empty"}`} className="min-w-0">
+                <div className="mb-2 flex items-center gap-2">
+                  <span className="w-14 shrink-0 text-xs font-semibold text-muted-foreground">
+                    View {index + 1}
+                  </span>
+                  <select
+                    value={identifier || ""}
+                    onChange={(event) => changeSlot(index, event.target.value)}
+                    className="h-9 min-w-0 flex-1 rounded-md border border-input bg-background px-2 text-xs outline-none focus:ring-2 focus:ring-ring"
+                  >
+                    <option value="">Empty view</option>
+                    {availableChoices.map((choice) => (
+                      <option
+                        key={choice.camera_identifier}
+                        value={choice.camera_identifier}
+                      >
+                        {choice.camera_identifier} — {choice.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {camera ? (
+                  <LiveCameraTile
+                    camera={camera}
+                    gatewayAvailable={Boolean(data?.gateway_available)}
+                    compact={layoutCount >= 9}
+                  />
+                ) : (
+                  <div className="flex aspect-video items-center justify-center rounded-xl border border-dashed border-border bg-card text-sm text-muted-foreground">
+                    Select a camera for this view
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
 }
