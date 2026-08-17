@@ -5,8 +5,10 @@ from app.modules.alerts.router import router as alerts_router
 from app.modules.analytics.router import router as analytics_router
 from app.modules.assignments.router import router as assignments_router
 from app.modules.authentication.router import router as authentication_router
+from app.modules.cameras.router import router as cameras_router
 from app.modules.dashboard.router import router as dashboard_router
 from app.modules.departments.router import router as departments_router
+from app.modules.devices.router import router as devices_router
 from app.modules.evidence.router import router as evidence_router
 from app.modules.gis.router import router as gis_router
 from app.modules.incidents.router import router as incidents_router
@@ -34,5 +36,7 @@ for router in [
     ai_detections_router,
     dashboard_router,
     gis_router,
+    cameras_router,
+    devices_router,
 ]:
     api_router.include_router(router)
