@@ -1,10 +1,21 @@
-services:
+﻿services:
   backend:
     environment:
+
       MEDIAMTX_API_URL: http://mediamtx:9997
       MEDIAMTX_WEBRTC_PUBLIC_URL: ${MEDIAMTX_WEBRTC_PUBLIC_URL:-http://localhost:8889}
       LIVE_STREAM_TOKEN_SECRET: ${LIVE_STREAM_TOKEN_SECRET:-}
       LIVE_STREAM_TOKEN_TTL_SECONDS: ${LIVE_STREAM_TOKEN_TTL_SECONDS:-300}
+
+      CAMERA_GATEWAY_SHARED_KEY: ${CAMERA_GATEWAY_SHARED_KEY}
+      LIVE_STREAM_PUBLISH_USERNAME: ${LIVE_STREAM_PUBLISH_USERNAME}
+      LIVE_STREAM_PUBLISH_PASSWORD: ${LIVE_STREAM_PUBLISH_PASSWORD}
+
+      # Default V380 LAN credentials. Individual cameras can continue using
+      # credential_reference when they require different credentials.
+      V380_DEFAULT_USERNAME: ${V380_DEFAULT_USERNAME:-admin}
+      V380_DEFAULT_PASSWORD: ${V380_DEFAULT_PASSWORD:-}
+      V380_MCC_CAM_001_CREDENTIALS: ${V380_MCC_CAM_001_CREDENTIALS}
     depends_on:
       - mediamtx
     networks:
@@ -22,9 +33,37 @@ services:
     volumes:
       - ./mediamtx.yml:/mediamtx.yml:ro
     ports:
-      - "8554:8554"
+      # RTSP 8554 remains internal to the Docker network. Publishers are
+      # camera-gateway workers, not arbitrary LAN clients.
       - "8888:8888"
       - "8889:8889"
       - "8189:8189/udp"
+    networks:
+      - mcc-network
+
+  camera-gateway:
+    build:
+      context: ./macrovideo_client
+      dockerfile: Dockerfile.gateway
+    restart: unless-stopped
+    environment:
+      MCC_CAMERA_REGISTRY_URL: http://backend:8000/api/v1/live-streams/gateway/cameras
+      CAMERA_GATEWAY_SHARED_KEY: ${CAMERA_GATEWAY_SHARED_KEY}
+
+      MEDIAMTX_RTSP_BASE_URL: rtsp://mediamtx:8554
+      LIVE_STREAM_PUBLISH_USERNAME: ${LIVE_STREAM_PUBLISH_USERNAME}
+      LIVE_STREAM_PUBLISH_PASSWORD: ${LIVE_STREAM_PUBLISH_PASSWORD}
+
+      CAMERA_REGISTRY_POLL_SECONDS: ${CAMERA_REGISTRY_POLL_SECONDS:-10}
+      CAMERA_RECONNECT_SECONDS: ${CAMERA_RECONNECT_SECONDS:-5}
+      V380_LIVE_SOCKET_TIMEOUT: ${V380_LIVE_SOCKET_TIMEOUT:-2}
+      V380_LIVE_IDLE_TIMEOUT: ${V380_LIVE_IDLE_TIMEOUT:-20}
+      V380_DEFAULT_FPS: ${V380_DEFAULT_FPS:-12}
+      FFMPEG_LOG_LEVEL: ${FFMPEG_LOG_LEVEL:-warning}
+    depends_on:
+      backend:
+        condition: service_healthy
+      mediamtx:
+        condition: service_started
     networks:
       - mcc-network

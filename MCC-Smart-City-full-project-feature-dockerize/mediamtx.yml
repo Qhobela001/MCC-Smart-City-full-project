@@ -1,7 +1,8 @@
 # MCC HQ live-stream gateway.
-# Camera RTSP sources are registered dynamically by FastAPI through the
-# MediaMTX Control API. The Control API is intentionally not published to
-# the host by docker-compose.live-monitoring.yml.
+#
+# RTSP cameras can still be registered dynamically by FastAPI.
+# V380 cameras are published by the persistent camera-gateway service.
+# The MediaMTX Control API and RTSP publishing port stay inside Docker.
 
 logLevel: info
 
@@ -41,4 +42,6 @@ pathDefaults:
   rtspTransport: tcp
   record: false
 
-paths: {}
+# Allow publisher-created paths such as mcc-cam-001, mcc-cam-002, ...
+paths:
+  all_others:

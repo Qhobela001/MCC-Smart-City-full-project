@@ -1,0 +1,30 @@
+services:
+  backend:
+    environment:
+      MEDIAMTX_API_URL: http://mediamtx:9997
+      MEDIAMTX_WEBRTC_PUBLIC_URL: ${MEDIAMTX_WEBRTC_PUBLIC_URL:-http://localhost:8889}
+      LIVE_STREAM_TOKEN_SECRET: ${LIVE_STREAM_TOKEN_SECRET:-}
+      LIVE_STREAM_TOKEN_TTL_SECONDS: ${LIVE_STREAM_TOKEN_TTL_SECONDS:-300}
+    depends_on:
+      - mediamtx
+    networks:
+      - mcc-network
+
+  frontend:
+    depends_on:
+      - mediamtx
+    networks:
+      - mcc-network
+
+  mediamtx:
+    image: bluenviron/mediamtx:1.19.3
+    restart: unless-stopped
+    volumes:
+      - ./mediamtx.yml:/mediamtx.yml:ro
+    ports:
+      - "8554:8554"
+      - "8888:8888"
+      - "8889:8889"
+      - "8189:8189/udp"
+    networks:
+      - mcc-network

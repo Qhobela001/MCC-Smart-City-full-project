@@ -1,3 +1,5 @@
+import hashlib
+import hmac
 from datetime import datetime, timedelta, timezone
 
 from jose import JWTError, jwt
@@ -69,3 +71,75 @@ def decode_access_token(token: str) -> dict | None:
 
     except JWTError:
         return None
+
+
+def _password_fingerprint(hashed_password: str) -> str:
+    return hashlib.sha256(
+        hashed_password.encode("utf-8")
+    ).hexdigest()
+
+
+def create_password_reset_token(
+    user_id: int,
+    email: str,
+    hashed_password: str,
+) -> str:
+    now = datetime.now(timezone.utc)
+
+    payload = {
+        "sub": str(user_id),
+        "email": email.strip().lower(),
+        "pwd": _password_fingerprint(hashed_password),
+        "iat": now,
+        "exp": now
+        + timedelta(
+            minutes=settings.PASSWORD_RESET_TOKEN_EXPIRE_MINUTES,
+        ),
+        "type": "password_reset",
+    }
+
+    return jwt.encode(
+        payload,
+        settings.SECRET_KEY,
+        algorithm=settings.JWT_ALGORITHM,
+    )
+
+
+def decode_password_reset_token(
+    token: str,
+) -> dict | None:
+    try:
+        payload = jwt.decode(
+            token,
+            settings.SECRET_KEY,
+            algorithms=[settings.JWT_ALGORITHM],
+        )
+
+        if payload.get("type") != "password_reset":
+            return None
+
+        if not payload.get("sub"):
+            return None
+
+        if not payload.get("email"):
+            return None
+
+        if not payload.get("pwd"):
+            return None
+
+        return payload
+
+    except JWTError:
+        return None
+
+
+def password_reset_token_matches_hash(
+    token_fingerprint: str,
+    hashed_password: str,
+) -> bool:
+    expected = _password_fingerprint(hashed_password)
+
+    return hmac.compare_digest(
+        token_fingerprint,
+        expected,
+    )

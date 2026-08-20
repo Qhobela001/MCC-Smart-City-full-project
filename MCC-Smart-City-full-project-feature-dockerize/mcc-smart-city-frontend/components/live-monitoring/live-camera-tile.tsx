@@ -52,7 +52,7 @@ export function LiveCameraTile({
   useEffect(() => {
     let cancelled = false
 
-    if (!camera.stream_configured || !gatewayAvailable) {
+    if (!camera.stream_configured || !gatewayAvailable || !camera.gateway_ready) {
       setSession(null)
       setLoading(false)
       return
@@ -84,7 +84,7 @@ export function LiveCameraTile({
     return () => {
       cancelled = true
     }
-  }, [camera.camera_identifier, camera.stream_configured, gatewayAvailable, sessionKey])
+  }, [camera.camera_identifier, camera.stream_configured, camera.gateway_ready, gatewayAvailable, sessionKey])
 
   const viewerHref = `/live-feeds/${encodeURIComponent(camera.camera_identifier)}`
 
@@ -117,7 +117,17 @@ export function LiveCameraTile({
                   Stream not configured
                 </p>
                 <p className="text-xs text-white/55">
-                  Add the camera IP address and RTSP path in Camera &amp; Device Management.
+                  Add the camera IP address and stream/device settings in Camera &amp; Device Management.
+                </p>
+              </>
+            ) : !camera.gateway_ready ? (
+              <>
+                <Radio className="size-8 animate-pulse text-amber-400" />
+                <p className="text-sm font-medium text-white">
+                  Camera reconnecting…
+                </p>
+                <p className="text-xs text-white/55">
+                  The gateway will restore this feed automatically when the camera is reachable again.
                 </p>
               </>
             ) : loading ? (

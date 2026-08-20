@@ -1,6 +1,7 @@
 "use client"
 
 import Image from "next/image"
+import Link from "next/link"
 import {
   FormEvent,
   useEffect,
@@ -224,10 +225,19 @@ export default function LoginPage() {
               </button>
             </div>
 
+            <div className="mt-3 flex justify-end">
+              <Link
+                href="/forgot-password"
+                className="text-sm font-medium text-cyan-300 transition hover:text-cyan-200"
+              >
+                Forgot password?
+              </Link>
+            </div>
+
             <button
               type="submit"
               disabled={busy || loading}
-              className="mt-7 flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-cyan-500 font-medium text-slate-950 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-60"
+              className="mt-6 flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-cyan-500 font-medium text-slate-950 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {busy && (
                 <LoaderCircle className="size-4 animate-spin" />

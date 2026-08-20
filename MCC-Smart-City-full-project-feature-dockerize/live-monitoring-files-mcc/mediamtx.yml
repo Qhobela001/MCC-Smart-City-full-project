@@ -1,0 +1,44 @@
+# MCC HQ live-stream gateway.
+# Camera RTSP sources are registered dynamically by FastAPI through the
+# MediaMTX Control API. The Control API is intentionally not published to
+# the host by docker-compose.live-monitoring.yml.
+
+logLevel: info
+
+api: true
+apiAddress: :9997
+
+authMethod: http
+authHTTPAddress: http://backend:8000/api/v1/live-streams/mediamtx/auth
+authHTTPExclude:
+  - action: api
+  - action: metrics
+  - action: pprof
+
+rtsp: true
+rtspAddress: :8554
+rtspTransports: [tcp]
+
+hls: true
+hlsAddress: :8888
+hlsAllowOrigins:
+  - http://localhost:3600
+  - http://127.0.0.1:3600
+
+webrtc: true
+webrtcAddress: :8889
+webrtcAllowOrigins:
+  - http://localhost:3600
+  - http://127.0.0.1:3600
+webrtcLocalUDPAddress: :8189
+webrtcIPsFromInterfaces: true
+webrtcAdditionalHosts:
+  - localhost
+  - 127.0.0.1
+
+pathDefaults:
+  sourceOnDemand: false
+  rtspTransport: tcp
+  record: false
+
+paths: {}

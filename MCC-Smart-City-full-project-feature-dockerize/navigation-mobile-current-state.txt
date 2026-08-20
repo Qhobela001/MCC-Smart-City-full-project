@@ -1,0 +1,933 @@
+===== DASHBOARD LAYOUT =====
+import type { ReactNode } from "react"
+import { Sidebar } from "@/components/dashboard/sidebar"
+import { TopBar } from "@/components/dashboard/top-bar"
+import { ProtectedRoute } from "@/components/auth/protected-route"
+export default function DashboardLayout({children}:{children:ReactNode}){return <ProtectedRoute><div className="flex h-screen overflow-hidden bg-background"><Sidebar/><div className="flex min-w-0 flex-1 flex-col"><TopBar/><main className="flex-1 overflow-y-auto p-4 md:p-6"><div className="mx-auto flex max-w-7xl flex-col gap-4 md:gap-6">{children}</div></main></div></div></ProtectedRoute>}
+
+===== SIDEBAR =====
+"use client"
+
+import Link from "next/link"
+import { useEffect, useMemo, useState } from "react"
+import { usePathname } from "next/navigation"
+import * as Icons from "lucide-react"
+import {
+    ChevronRight,
+    LogOut,
+    ShieldCheck,
+} from "lucide-react"
+
+import { cn } from "@/lib/utils"
+import { apiFetch } from "@/lib/api"
+import type { NavigationItem } from "@/lib/types"
+import { useAuth } from "@/components/auth/auth-provider"
+
+
+const fallback: NavigationItem[] = [
+    {
+        id: 1,
+        label: "Dashboard",
+        href: "/",
+        icon: "LayoutDashboard",
+        section: "Overview",
+        sort_order: 1,
+        is_active: true,
+        is_system: true,
+        created_at: "",
+    },
+    {
+        id: 2,
+        label: "Users",
+        href: "/administration/users",
+        icon: "Users",
+        section: "Administration",
+        sort_order: 1,
+        is_active: true,
+        is_system: true,
+        created_at: "",
+    },
+    {
+        id: 3,
+        label: "Departments",
+        href: "/administration/departments",
+        icon: "Building2",
+        section: "Administration",
+        sort_order: 2,
+        is_active: true,
+        is_system: true,
+        created_at: "",
+    },
+    {
+        id: 4,
+        label: "Roles & Permissions",
+        href: "/administration/roles",
+        icon: "ShieldCheck",
+        section: "Administration",
+        sort_order: 3,
+        is_active: true,
+        is_system: true,
+        created_at: "",
+    },
+    {
+        id: 5,
+        label: "Navigation",
+        href: "/administration/navigation",
+        icon: "PanelLeft",
+        section: "Administration",
+        sort_order: 4,
+        is_active: true,
+        is_system: true,
+        created_at: "",
+    },
+]
+
+
+const sectionPriority: Record<string, number> = {
+    Overview: 1,
+    Operations: 2,
+    Administration: 3,
+    Analytics: 4,
+}
+
+
+function iconFor(name: string) {
+    return (
+        (
+            Icons as unknown as Record<
+                string,
+                Icons.LucideIcon
+            >
+        )[name] || Icons.Circle
+    )
+}
+
+
+function routeFor(href: string) {
+    if (href === "/dashboard") {
+        return "/"
+    }
+
+    if (href === "/monitoring/live") {
+        return "/live-feeds"
+    }
+
+    if (href === "/reports") {
+        return "/analytics"
+    }
+
+    return href
+}
+
+
+function routeIsActive(
+    pathname: string,
+    href: string,
+) {
+    return (
+        pathname === href ||
+        (href !== "/" &&
+            pathname.startsWith(`${href}/`))
+    )
+}
+
+
+export function Sidebar() {
+    const pathname = usePathname()
+    const { user, logout } = useAuth()
+
+    const [items, setItems] =
+        useState<NavigationItem[]>([])
+
+    const [expandedSections, setExpandedSections] =
+        useState<Record<string, boolean>>({})
+
+
+    useEffect(() => {
+        apiFetch<NavigationItem[]>("/navigation/me")
+            .then(setItems)
+            .catch(() => setItems(fallback))
+    }, [])
+
+
+    const groups = useMemo(() => {
+        const map = new Map<
+            string,
+            NavigationItem[]
+        >()
+
+        const activeItems = items
+            .filter((item) => item.is_active)
+            .sort(
+                (a, b) =>
+                    a.sort_order - b.sort_order,
+            )
+
+        for (const item of activeItems) {
+            const section =
+                item.section || "Workspace"
+
+            map.set(section, [
+                ...(map.get(section) || []),
+                item,
+            ])
+        }
+
+        return [...map.entries()].sort(
+            ([sectionA], [sectionB]) => {
+                const priorityA =
+                    sectionPriority[sectionA] ?? 999
+
+                const priorityB =
+                    sectionPriority[sectionB] ?? 999
+
+                if (priorityA !== priorityB) {
+                    return priorityA - priorityB
+                }
+
+                return sectionA.localeCompare(
+                    sectionB,
+                )
+            },
+        )
+    }, [items])
+
+
+    /*
+     * Whenever navigation is loaded, new sections
+     * start expanded unless the user has already
+     * manually changed that section.
+     */
+    useEffect(() => {
+        if (groups.length === 0) {
+            return
+        }
+
+        setExpandedSections((current) => {
+            const next = { ...current }
+
+            for (const [section] of groups) {
+                if (next[section] === undefined) {
+                    next[section] = true
+                }
+            }
+
+            return next
+        })
+    }, [groups])
+
+
+    /*
+     * When the user navigates to another page,
+     * automatically expand the section containing
+     * the current route.
+     */
+    useEffect(() => {
+        for (const [section, links] of groups) {
+            const containsActiveRoute =
+                links.some((item) => {
+                    const href = routeFor(item.href)
+
+                    return routeIsActive(
+                        pathname,
+                        href,
+                    )
+                })
+
+            if (containsActiveRoute) {
+                setExpandedSections(
+                    (current) => ({
+                        ...current,
+                        [section]: true,
+                    }),
+                )
+
+                break
+            }
+        }
+    }, [pathname, groups])
+
+
+    function toggleSection(
+        section: string,
+    ) {
+        setExpandedSections((current) => ({
+            ...current,
+            [section]:
+                !(current[section] ?? true),
+        }))
+    }
+
+
+    const initials = (
+        user?.full_name || "MCC"
+    )
+        .split(/\s+/)
+        .map((part) => part[0])
+        .slice(0, 2)
+        .join("")
+        .toUpperCase()
+
+
+    return (
+        <aside className="hidden w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar lg:flex">
+
+            {/* Brand */}
+            <div className="flex h-16 items-center gap-3 border-b border-sidebar-border px-5">
+
+                <div className="flex size-9 items-center justify-center rounded-lg bg-primary/15 text-primary">
+                    <ShieldCheck className="size-5" />
+                </div>
+
+                <div className="leading-tight">
+                    <p className="text-sm font-semibold text-sidebar-foreground">
+                        MCC Command
+                    </p>
+
+                    <p className="text-xs text-muted-foreground">
+                        Maseru City Council
+                    </p>
+                </div>
+
+            </div>
+
+
+            {/* Navigation */}
+            <nav className="flex flex-1 flex-col overflow-y-auto px-3 py-4">
+
+                {groups.map(
+                    ([section, links]) => {
+                        const expanded =
+                            expandedSections[section] ??
+                            true
+
+                        const sectionHasActiveRoute =
+                            links.some((item) => {
+                                const href = routeFor(
+                                    item.href,
+                                )
+
+                                return routeIsActive(
+                                    pathname,
+                                    href,
+                                )
+                            })
+
+                        return (
+                            <div
+                                key={section}
+                                className="mb-2"
+                            >
+
+                                {/* Clickable section header */}
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        toggleSection(section)
+                                    }
+                                    aria-expanded={expanded}
+                                    className={cn(
+                                        "group flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left transition",
+                                        "hover:bg-sidebar-accent",
+                                        sectionHasActiveRoute &&
+                                        "text-sidebar-foreground",
+                                    )}
+                                >
+
+                                    <ChevronRight
+                                        className={cn(
+                                            "size-3.5 shrink-0 text-muted-foreground transition-transform duration-200",
+                                            expanded &&
+                                            "rotate-90",
+                                        )}
+                                    />
+
+                                    <span
+                                        className={cn(
+                                            "flex-1 text-[11px] font-semibold uppercase tracking-[.16em]",
+                                            sectionHasActiveRoute
+                                                ? "text-sidebar-foreground"
+                                                : "text-muted-foreground",
+                                        )}
+                                    >
+                    {section}
+                  </span>
+
+                                    <span className="text-[10px] tabular-nums text-muted-foreground/70">
+                    {links.length}
+                  </span>
+
+                                </button>
+
+
+                                {/* Collapsible section items */}
+                                <div
+                                    className={cn(
+                                        "grid transition-all duration-200 ease-in-out",
+                                        expanded
+                                            ? "grid-rows-[1fr] opacity-100"
+                                            : "grid-rows-[0fr] opacity-0",
+                                    )}
+                                >
+                                    <div className="overflow-hidden">
+
+                                        <div className="space-y-1 pb-2 pt-1">
+
+                                            {links.map((item) => {
+                                                const Icon =
+                                                    iconFor(item.icon)
+
+                                                const href =
+                                                    routeFor(item.href)
+
+                                                const active =
+                                                    routeIsActive(
+                                                        pathname,
+                                                        href,
+                                                    )
+
+                                                return (
+                                                    <Link
+                                                        key={item.id}
+                                                        href={href}
+                                                        className={cn(
+                                                            "group flex items-center gap-3 rounded-lg py-2.5 pl-7 pr-3 text-sm transition",
+                                                            active
+                                                                ? "bg-primary/12 font-medium text-primary"
+                                                                : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground",
+                                                        )}
+                                                    >
+
+                                                        <Icon className="size-4 shrink-0" />
+
+                                                        <span className="flex-1 truncate">
+                              {item.label}
+                            </span>
+
+                                                        <ChevronRight
+                                                            className={cn(
+                                                                "size-3.5 shrink-0 opacity-0 transition",
+                                                                "group-hover:opacity-70",
+                                                                active &&
+                                                                "opacity-70",
+                                                            )}
+                                                        />
+
+                                                    </Link>
+                                                )
+                                            })}
+
+                                        </div>
+
+                                    </div>
+                                </div>
+
+                            </div>
+                        )
+                    },
+                )}
+
+            </nav>
+
+
+            {/* Signed-in user */}
+            <div className="border-t border-sidebar-border p-3">
+
+                <div className="rounded-xl bg-sidebar-accent/55 p-3">
+
+                    <div className="flex items-center gap-3">
+
+                        <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary">
+                            {initials}
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+
+                            <p className="truncate text-sm font-medium">
+                                {user?.full_name}
+                            </p>
+
+                            <p className="truncate text-xs text-muted-foreground">
+                                {user?.is_superuser
+                                    ? "Super Administrator"
+                                    : user?.role?.name ||
+                                    "MCC Employee"}
+                            </p>
+
+                        </div>
+
+                        <button
+                            type="button"
+                            onClick={logout}
+                            title="Sign out"
+                            className="rounded-md p-2 text-muted-foreground transition hover:bg-background hover:text-foreground"
+                        >
+                            <LogOut className="size-4" />
+                        </button>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </aside>
+    )
+}
+
+===== TOP BAR =====
+"use client"
+
+import { usePathname } from "next/navigation"
+import { Menu } from "lucide-react"
+
+import { useAuth } from "@/components/auth/auth-provider"
+import { NotificationBell } from "@/components/dashboard/notification-bell"
+import { ThemeToggle } from "@/components/theme-toggle"
+
+
+const titles: Record<string, string> = {
+  "/": "Operations Overview",
+  "/administration/users": "User Management",
+  "/administration/departments": "Departments",
+  "/administration/roles": "Roles & Permissions",
+  "/administration/navigation": "Navigation Management",
+  "/live-feeds": "Live Feeds",
+  "/incidents": "Incidents",
+  "/assignments": "Assignments",
+  "/notifications": "Notifications",
+  "/city-map": "City Map",
+  "/analytics": "Analytics",
+  "/devices": "Devices",
+}
+
+
+export function TopBar() {
+  const pathname = usePathname()
+  const { user } = useAuth()
+
+  const title =
+    titles[pathname] ||
+    (pathname.startsWith("/incidents")
+      ? "Incidents"
+      : "MCC Command Center")
+
+  return (
+    <header className="flex h-16 shrink-0 items-center gap-4 border-b border-border bg-background/85 px-4 backdrop-blur md:px-6">
+      <button className="rounded-md p-2 text-muted-foreground lg:hidden">
+        <Menu className="size-5" />
+      </button>
+
+      <div>
+        <h1 className="text-base font-semibold md:text-lg">
+          {title}
+        </h1>
+
+        <p className="hidden text-xs text-muted-foreground sm:block">
+          {user?.department?.name || "Maseru City Council"} ·
+          Secure administration
+        </p>
+      </div>
+
+      <div className="ml-auto flex items-center gap-2">
+        <div className="hidden text-right md:block">
+          <p className="text-xs font-medium">
+            {user?.full_name}
+          </p>
+
+          <p className="text-[11px] text-muted-foreground">
+            {user?.role?.name || "SuperAdmin"}
+          </p>
+        </div>
+
+        <ThemeToggle />
+        <NotificationBell />
+      </div>
+    </header>
+  )
+}
+
+===== NAVIGATION INIT/SEED =====
+from sqlalchemy import select
+
+from app.core.config import settings
+from app.core.security import get_password_hash
+from app.db.base import Base
+from app.db.gis_link_schema import ensure_gis_event_links
+from app.db.session import SessionLocal, engine
+
+from app.modules.ai_detections.models import AIDetection
+from app.modules.alerts.models import Alert
+from app.modules.assignments.models import (
+    Assignment,
+    AssignmentActivity,
+    AssignmentEvidenceLink,
+)
+from app.modules.assignments.service import (
+    backfill_existing_incident_assignments,
+)
+from app.modules.departments.models import Department
+from app.modules.evidence.models import Evidence
+from app.modules.gis.models import (
+    GISLocation,
+    GISZone,
+)
+from app.modules.incidents.models import (
+    Incident,
+    IncidentActivity,
+)
+from app.modules.navigation.models import NavigationItem
+from app.modules.permissions.models import Permission
+from app.modules.roles.models import Role
+from app.modules.users.models import User
+
+
+PERMISSIONS = [
+    ("View Dashboard", "dashboard.view"),
+
+    ("View Users", "users.view"),
+    ("Create Users", "users.create"),
+    ("Update Users", "users.update"),
+    (
+        "Reset User Passwords",
+        "users.reset_password",
+    ),
+
+    ("View Departments", "departments.view"),
+    (
+        "Create Departments",
+        "departments.create",
+    ),
+    (
+        "Update Departments",
+        "departments.update",
+    ),
+    (
+        "Delete Departments",
+        "departments.delete",
+    ),
+
+    ("View Roles", "roles.view"),
+    ("Create Roles", "roles.create"),
+    ("Update Roles", "roles.update"),
+    (
+        "View Permissions",
+        "permissions.view",
+    ),
+
+    (
+        "View Navigation",
+        "navigation.view",
+    ),
+    (
+        "Create Navigation",
+        "navigation.create",
+    ),
+    (
+        "Update Navigation",
+        "navigation.update",
+    ),
+
+    ("View Cameras", "cameras.view"),
+    ("Manage Cameras", "cameras.manage"),
+
+    ("View Incidents", "incidents.view"),
+    (
+        "Create Incidents",
+        "incidents.create",
+    ),
+    (
+        "Update Incidents",
+        "incidents.update",
+    ),
+    (
+        "Assign Incidents",
+        "incidents.assign",
+    ),
+    (
+        "Resolve Incidents",
+        "incidents.resolve",
+    ),
+    (
+        "Dismiss Incidents",
+        "incidents.dismiss",
+    ),
+
+    ("View Evidence", "evidence.view"),
+    (
+        "Upload Evidence",
+        "evidence.upload",
+    ),
+    (
+        "Delete Evidence",
+        "evidence.delete",
+    ),
+
+    ("View Alerts", "alerts.view"),
+
+    (
+        "View Department Assignments",
+        "assignments.view_department",
+    ),
+    (
+        "View All Assignments",
+        "assignments.view_all",
+    ),
+    (
+        "Create Assignments",
+        "assignments.create",
+    ),
+    (
+        "Manage Department Assignments",
+        "assignments.manage_department",
+    ),
+    (
+        "Manage All Assignments",
+        "assignments.manage_all",
+    ),
+    (
+        "Verify Assignment Completion",
+        "assignments.verify",
+    ),
+
+    (
+        "View AI Detections",
+        "ai_detections.view",
+    ),
+    (
+        "Ingest AI Detections",
+        "ai_detections.create",
+    ),
+    (
+        "Review AI Detections",
+        "ai_detections.review",
+    ),
+
+    ("View Reports", "reports.view"),
+]
+
+
+NAVIGATION_ITEMS = [
+    (
+        "Dashboard",
+        "/dashboard",
+        "LayoutDashboard",
+        "Overview",
+        1,
+        "dashboard.view",
+    ),
+    (
+        "Users",
+        "/administration/users",
+        "Users",
+        "Administration",
+        1,
+        "users.view",
+    ),
+    (
+        "Departments",
+        "/administration/departments",
+        "Building2",
+        "Administration",
+        2,
+        "departments.view",
+    ),
+    (
+        "Roles & Permissions",
+        "/administration/roles",
+        "ShieldCheck",
+        "Administration",
+        3,
+        "roles.view",
+    ),
+    (
+        "Navigation",
+        "/administration/navigation",
+        "PanelLeft",
+        "Administration",
+        4,
+        "navigation.view",
+    ),
+    (
+        "Live Monitoring",
+        "/monitoring/live",
+        "Cctv",
+        "Operations",
+        1,
+        "cameras.view",
+    ),
+    (
+        "Incidents",
+        "/incidents",
+        "TriangleAlert",
+        "Operations",
+        2,
+        "incidents.view",
+    ),
+    (
+        "Assignments",
+        "/assignments",
+        "ClipboardCheck",
+        "Operations",
+        3,
+        "incidents.view",
+    ),
+    (
+        "City Map",
+        "/city-map",
+        "MapPin",
+        "Operations",
+        4,
+        "incidents.view",
+    ),
+    (
+        "Reports",
+        "/reports",
+        "FileBarChart",
+        "Analytics",
+        1,
+        "reports.view",
+    ),
+]
+
+
+def init_db() -> None:
+    # Model imports above register all tables.
+    Base.metadata.create_all(bind=engine)
+
+    # create_all does not alter already-existing tables.
+    # Upgrade the existing Docker volume safely and idempotently.
+    ensure_gis_event_links(engine)
+
+    with SessionLocal() as db:
+        for name, code in PERMISSIONS:
+            permission = db.scalar(
+                select(Permission).where(
+                    Permission.code == code
+                )
+            )
+
+            if permission is None:
+                permission = Permission(
+                    name=name,
+                    code=code,
+                    description=name,
+                    is_system=True,
+                    is_active=True,
+                )
+                db.add(permission)
+            else:
+                permission.name = name
+                permission.description = name
+                permission.is_system = True
+                permission.is_active = True
+
+        db.flush()
+
+        role = db.scalar(
+            select(Role).where(
+                Role.name == "SuperAdmin"
+            )
+        )
+
+        if role is None:
+            role = Role(
+                name="SuperAdmin",
+                description=(
+                    "System owner with unrestricted access"
+                ),
+                is_system=True,
+                is_active=True,
+            )
+            db.add(role)
+            db.flush()
+
+        role.permissions = list(
+            db.scalars(
+                select(Permission)
+            ).all()
+        )
+
+        admin = db.scalar(
+            select(User).where(
+                User.email
+                == settings.SUPERADMIN_EMAIL.lower()
+            )
+        )
+
+        if admin is None:
+            db.add(
+                User(
+                    full_name=(
+                        settings.SUPERADMIN_NAME
+                    ),
+                    email=(
+                        settings.SUPERADMIN_EMAIL.lower()
+                    ),
+                    hashed_password=(
+                        get_password_hash(
+                            settings.SUPERADMIN_PASSWORD
+                        )
+                    ),
+                    role_id=role.id,
+                    is_superuser=True,
+                    is_active=True,
+                    must_change_password=True,
+                    status="active",
+                )
+            )
+
+        for (
+            label,
+            href,
+            icon,
+            section,
+            sort_order,
+            permission_code,
+        ) in NAVIGATION_ITEMS:
+            item = db.scalar(
+                select(NavigationItem).where(
+                    NavigationItem.href == href
+                )
+            )
+
+            if item is None:
+                item = NavigationItem(
+                    label=label,
+                    href=href,
+                    icon=icon,
+                    section=section,
+                    sort_order=sort_order,
+                    permission_code=(
+                        permission_code
+                    ),
+                    is_system=True,
+                    is_active=True,
+                )
+                db.add(item)
+            else:
+                item.label = label
+                item.icon = icon
+                item.section = section
+                item.sort_order = sort_order
+                item.permission_code = (
+                    permission_code
+                )
+                item.is_system = True
+                item.is_active = True
+
+        backfill_existing_incident_assignments(
+            db
+        )
+
+        db.commit()
+
+===== NAVIGATION MODEL =====
+from sqlalchemy import Boolean, Column, DateTime, Integer, String
+from sqlalchemy.sql import func
+from app.db.base import Base
+class NavigationItem(Base):
+ __tablename__='navigation_items'
+ id=Column(Integer,primary_key=True,index=True); label=Column(String(100),nullable=False); href=Column(String(200),nullable=False); icon=Column(String(100),default='LayoutDashboard',nullable=False)
+ section=Column(String(100),default='Workspace',nullable=False); sort_order=Column(Integer,default=0,nullable=False); permission_code=Column(String(150),nullable=True,index=True)
+ is_active=Column(Boolean,default=True,nullable=False); is_system=Column(Boolean,default=False,nullable=False); created_at=Column(DateTime(timezone=True),server_default=func.now(),nullable=False)

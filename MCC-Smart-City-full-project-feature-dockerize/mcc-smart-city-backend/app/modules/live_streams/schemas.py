@@ -78,3 +78,20 @@ class MediaMTXAuthRequest(BaseModel):
     id: str = ""
     query: str = ""
     userAgent: str = ""
+
+
+class GatewayCameraConfigRead(BaseModel):
+    camera_identifier: str
+    gateway_path: str
+    host: str
+    port: int
+    device_id: int
+    username: str
+    password: str
+    enabled: bool = True
+
+
+class GatewayCameraRegistryResponse(BaseModel):
+    items: list[GatewayCameraConfigRead] = Field(default_factory=list)
+    total: int
+    generated_at: datetime

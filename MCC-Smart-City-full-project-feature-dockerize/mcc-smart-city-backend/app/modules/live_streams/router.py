@@ -1,10 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+import os
+import secrets
+
+from fastapi import APIRouter, Depends, Header, HTTPException, Response, status
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_db, require_permission
 from app.modules.live_streams import service
 from app.modules.live_streams.schemas import (
     GatewayStatusRead,
+    GatewayCameraRegistryResponse,
     LiveCameraRead,
     LiveStreamListResponse,
     LiveStreamSessionResponse,
@@ -28,6 +32,28 @@ router = APIRouter(
 def authorize_mediamtx_request(
     payload: MediaMTXAuthRequest,
 ) -> Response:
+    if payload.action == "publish":
+        expected_user = os.getenv(
+            "LIVE_STREAM_PUBLISH_USERNAME",
+            "",
+        )
+        expected_password = os.getenv(
+            "LIVE_STREAM_PUBLISH_PASSWORD",
+            "",
+        )
+
+        if (
+            not expected_user
+            or not secrets.compare_digest(payload.user, expected_user)
+            or not secrets.compare_digest(payload.password, expected_password)
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Stream publisher credentials are invalid.",
+            )
+
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+
     if payload.action != "read":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -52,6 +78,34 @@ def authorize_mediamtx_request(
         ) from exc
 
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get(
+    "/gateway/cameras",
+    response_model=GatewayCameraRegistryResponse,
+    include_in_schema=False,
+)
+def get_gateway_camera_registry(
+    db: Session = Depends(get_db),
+    x_camera_gateway_key: str = Header(
+        default="",
+        alias="X-Camera-Gateway-Key",
+    ),
+) -> GatewayCameraRegistryResponse:
+    expected = os.getenv("CAMERA_GATEWAY_SHARED_KEY", "")
+    if (
+        not expected
+        or not secrets.compare_digest(
+            x_camera_gateway_key,
+            expected,
+        )
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Camera gateway authentication failed.",
+        )
+
+    return service.list_gateway_camera_configs(db)
 
 
 @router.get(

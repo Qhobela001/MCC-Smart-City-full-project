@@ -1,0 +1,2038 @@
+
+Thu, Jul 30 at 9:21 PM
+
+backend(11).zip
+Zip Archive
+good everything is up and running now, i just have this system, and would like to use it, or its code, to build dynamic navigation, and role based authentication, here is the zip file of the previous system, but this one, i want to have like superAdmin, who register people and add department, and roles, the system is for Maseru City council, and i know it has 5 departments, but i want it to allow the superadmin be able to add them, and roles, and in the backend.zip, just focus on authentication mostly
+
+
+Pasted text(23).txt
+Document
+here is the full process
+
+why is this failing because i am able to do other things, and download as well, like 1. something mbso its not my interneet, but something is the problem!!
+
+
+frontend(9).zip
+Zip Archive
+
+backend(12).zip
+Zip Archive
+everything now works, can you now create the frontend, i currently have only this backend and frontend files, and have tested the authentication endpoints using the swagger, docs, and it works, so now i need help with frontend, lets create it for the superadmin, and , login, and dashboard and have proper menu items and keep the ui design as it or improve a little
+
+so in what order should i now test this, like add departments, then users,then roles, permission, in what order should i test
+
+Sat, Aug 1 at 8:43 PM
+image(170).png
+image(171).png
+there's a bug here, what would the user use as identifier when logging in, n i just added but, its not shown as well, but when i add them again, it says they exist
+
+now i get this whem i add IT manager again, and this one does not make sense, cos i did not add email, for the first it manager, for the above snippet, please give me full code , not snippets
+
+image(173).png
+image(174).png
+it works, have logged in,  and changed the temporary password, and this is whas shown for IT Manager, and can we create a modal for superAdmin, so that they can click and maybe view all information of the user show,
+
+    but now the IT manager is able to view super admin details and even his, is that a good things, like prffessianally, whats the flow here, this system is real and its going to be used by MCC, its not plaything or school project, and its sponsored by UNDP
+
+
+backend(13).zip
+Zip Archive
+okay but its a norm for IT manager to help all the users at organisation, even if not SuperAdmin, but other users , so i think we should follow that, and thats latest modules, i have, what should i replace and change, remember full file!!!
+
+
+srs_template-ieee (1).doc
+Document
+okay since we still struggling with camera, and waiting for nvidea jetson, lets work on other modules, that can be done with software, and this is the srs document we should follow
+
+
+frontend(10).zip
+Zip Archive
+
+backend_modules(1).zip
+Zip Archive
+everything works, lets just consume them, and check also the latest files you gave me and how the backend is built, and how far we have come and whats needed
+
+is it still building?
+
+
+    Pasted text(20260810-104443).txt
+Document
+
+
+Screenshot 2026-08-10 144131.png
+Screenshot 2026-08-10 144145.png
+
+
+Pasted text(20260810-141708).txt
+Document
+
+Pasted text (2)(20260810-141729).txt
+Document
+
+
+Pasted text(20260810-142157).txt
+Document
+
+Pasted text (2)(20260810-142341).txt
+Document
+
+Pasted text (3)(4).txt
+Document
+
+Pasted text (4)(2).txt
+Document
+export const API_URL =
+    process.env.NEXT_PUBLIC_API_URL ||
+    "http://localhost:8000/api/v1"
+
+export class ApiError extends Error {
+  status: number
+
+  constructor(message: string, status: number) {
+    super(message)
+    this.name = "ApiError"
+    this.status = status
+  }
+}
+
+function accessToken() {
+  if (typeof window === "undefined") {
+    return null
+  }
+
+  return localStorage.getItem("mcc_access_token")
+}
+
+function clearStoredSession() {
+  if (typeof window === "undefined") {
+    return
+  }
+
+  localStorage.removeItem("mcc_access_token")
+  localStorage.removeItem("mcc_user")
+}
+
+async function errorMessage(response: Response) {
+  const fallback = Request failed (${response.status})
+
+  try {
+    const data = await response.json()
+
+    if (typeof data?.detail === "string") {
+      return data.detail
+    }
+
+    if (Array.isArray(data?.detail)) {
+      return data.detail
+          .map((item: { msg?: string }) => item.msg || "Invalid value")
+          .join("; ")
+    }
+
+    return data?.message || fallback
+  } catch {
+    return fallback
+  }
+}
+
+export async function apiFetch<T>(
+    path: string,
+    options: RequestInit = {},
+): Promise<T> {
+  const headers = new Headers(options.headers)
+  const token = accessToken()
+  const bodyIsFormData = options.body instanceof FormData
+
+  if (options.body && !bodyIsFormData && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json")
+  }
+
+  if (token) {
+    headers.set("Authorization", Bearer ${token})
+  }
+
+  const response = await fetch(${API_URL}${path}, {
+  ...options,
+        headers,
+        cache: "no-store",
+  })
+
+  if (!response.ok) {
+    const message = await errorMessage(response)
+
+    if (response.status === 401) {
+      clearStoredSession()
+    }
+
+    throw new ApiError(message, response.status)
+  }
+
+  if (response.status === 204) {
+    return undefined as T
+  }
+
+  return response.json() as Promise<T>
+}
+
+export async function apiDownload(
+    path: string,
+    suggestedFileName = "download",
+): Promise<void> {
+  const headers = new Headers()
+  const token = accessToken()
+
+  if (token) {
+    headers.set("Authorization", Bearer ${token})
+  }
+
+  const response = await fetch(${API_URL}${path}, {
+    headers,
+        cache: "no-store",
+  })
+
+  if (!response.ok) {
+    const message = await errorMessage(response)
+
+    if (response.status === 401) {
+      clearStoredSession()
+    }
+
+    throw new ApiError(message, response.status)
+  }
+
+  const blob = await response.blob()
+  const objectUrl = URL.createObjectURL(blob)
+  const anchor = document.createElement("a")
+
+  anchor.href = objectUrl
+  anchor.download = suggestedFileName
+  document.body.appendChild(anchor)
+  anchor.click()
+  anchor.remove()
+  URL.revokeObjectURL(objectUrl)
+}
+
+this is api.ts
+
+
+
+from here what do we do?
+
+
+    Screenshot 2026-08-11 111117.png
+Screenshot 2026-08-11 111130.png
+
+
+Pasted text(20260811-101206).txt
+Document
+
+
+Pasted text(20260811-101447).txt
+Document
+
+
+i was creating an incident manually as a supreadmin, but i still cant upload, the attach thing isnt still clickable on
+
+
+Pasted text(20260811-104606).txt
+Document
+
+
+PS C:\Users\Qhobela\Downloads\MCC-Smart-City-full-project-feature-dockerize\MCC-Smart-City-full-project-feature-dockerize> cd mcc-smart-city-frontend
+PS C:\Users\Qhobela\Downloads\MCC-Smart-City-full-project-feature-dockerize\MCC-Smart-City-full-project-feature-dockerize\mcc-smart-city-frontend> Get-Content ".\app\(dashboard)\incidents\page.tsx" | Set-Clipboard
+PS C:\Users\Qhobela\Downloads\MCC-Smart-City-full-project-feature-dockerize\MCC-Smart-City-full-project-feature-dockerize\mcc-smart-city-frontend> Get-ChildItem -Recurse -File | Select-String "uploadEvidence"
+
+app\(dashboard)\incidents\page.tsx:843:  async function uploadEvidence(event:
+                                                                       FormEvent<HTMLFormElement>) {
+  app\(dashboard)\incidents\page.tsx:1206:                canUploadEvidence={Boolean(
+        app\(dashboard)\incidents\page.tsx:1507:              <form onSubmit={uploadEvidence}
+                                                                    className="grid gap-4 sm:grid-cols-2">
+    app\(dashboard)\incidents\page.tsx:1627:                          canUploadEvidence,
+    app\(dashboard)\incidents\page.tsx:1641:  canUploadEvidence: boolean
+    app\(dashboard)\incidents\page.tsx:1704:                  {canUploadEvidence && !["resolved",
+    "dismissed"].includes(incident.status) && (
+      app\(dashboard)\incidents\page.tsx:2640:  async function uploadEvidence(event:
+    FormEvent<HTMLFormElement>) {
+    app\(dashboard)\incidents\page.tsx:3003:                canUploadEvidence={Boolean(
+    app\(dashboard)\incidents\page.tsx:3304:              <form onSubmit={uploadEvidence}
+                                                                    className="grid gap-4 sm:grid-cols-2">
+    app\(dashboard)\incidents\page.tsx:3424:                          canUploadEvidence,
+    app\(dashboard)\incidents\page.tsx:3438:  canUploadEvidence: boolean
+    app\(dashboard)\incidents\page.tsx:3501:                  {canUploadEvidence && !["resolved",
+    "dismissed"].includes(incident.status) && (
+
+
+      PS C:\Users\Qhobela\Downloads\MCC-Smart-City-full-project-feature-dockerize\MCC-Smart-City-full-project-feature-dockerize\mcc-smart-city-frontend> Get-ChildItem -Recurse -File | Select-String '"/evidence'
+
+    PS C:\Users\Qhobela\Downloads\MCC-Smart-City-full-p
+
+
+    Pasted markdown.md
+    File
+
+    i dont have payload or requests
+
+
+
+    Screenshot 2026-08-12 092122.png
+    Screenshot 2026-08-12 092146.png
+
+
+    Pasted text(20260812-084629).txt
+    Document
+    for more information.
+
+    JSON.parse(localStorage.getItem("mcc_user") || "null")
+
+  {id: 1, full_name: 'MCC Super Administrator', employee_number: null, email: 'admin@mcc.org.ls', phone_number: null, …}
+
+    JSON.parse(localStorage.getItem("mcc_user") || "null")?.is_superuser
+
+    true
+
+
+
+    Pasted text(20260812-095433).txt
+    Document
+
+
+    Pasted text(20260812-101831).txt
+    Document
+
+    Screenshot 2026-08-12 114751.png
+
+    Screenshot 2026-08-12 120727.png
+    that is not at all what were seeing here, we have the above screen
+
+
+    Pasted text(20260812-124248).txt
+    Document
+
+
+    Pasted text(20260812-125042).txt
+    Document
+
+    Screenshot 2026-08-12 140525.png
+    at step 10 i get output attached
+
+
+    Pasted text(20260812-130501).txt
+    Document
+
+
+    Pasted text(20260812-131800).txt
+    Document
+
+
+    Pasted text(20260812-135121).txt
+    Document
+
+    Screenshot 2026-08-13 090151.png
+
+    Perfect — the backend summary endpoint is fully validated now.
+
+    The Swagger response is 200 OK, and its values match PostgreSQL exactly:
+
+    open_incidents      = 5  ✓
+    critical_incidents  = 1  ✓
+    resolved_incidents  = 0  ✓
+    unread_alerts       = 1  ✓
+
+    new                 = 3  ✓
+    under_review        = 0  ✓
+    confirmed           = 0  ✓
+    assigned            = 1  ✓
+    in_progress         = 1  ✓
+    resolved            = 0  ✓
+    dismissed           = 0  ✓
+    It is also returning the actual recent AI-generated incident, so the endpoint is doing more than just counting correctly. The backend part of this feature is complete.
+
+    Now we move to the frontend and change the dashboard from approximately 9 separate requests to:
+
+    Dashboard page
+    │
+    └── GET /api/v1/dashboard/summary
+    │
+    ├── Initial load
+    ├── Manual Refresh button
+    └── Silent refresh every 10 seconds
+    The important part is silent polling: every 10 seconds it updates the numbers, recent incidents, recent alerts, and status breakdown without putting the dashboard back into the full-page Loading MCC Command Centre... state.
+
+    Before changing it, let's inspect the exact current dashboard file on your machine so we don't overwrite anything that may have changed since the last version.
+
+    Run:
+
+    Get-Content ".\mcc-smart-city-frontend\app\(dashboard)\page.tsx"
+    If that output is too large, use this instead so we only inspect the section we need first:
+
+    Get-Content ".\mcc-smart-city-frontend\app\(dashboard)\page.tsx" -TotalCount 180
+    Send me that output. Then I'll give you the exact replacement for the dashboard data-loading section with the 10-second polling implementation.
+
+
+    PS C:\Users\Qhobela\Downloads\MCC-Smart-City-full-project-feature-dockerize\MCC-Smart-City-full-project-feature-dockerize> Get-Content ".\mcc-smart-city-frontend\app\(dashboard)\page.tsx" -TotalCount 180
+    "use client"
+
+    import Link from "next/link"
+    import { useCallback, useEffect, useMemo, useState } from "react"
+    import {
+    Activity,
+    AlertTriangle,
+    ArrowRight,
+    Bell,
+    BrainCircuit,
+    Camera,
+    CheckCircle2,
+    CircleDot,
+    Clock3,
+    FileImage,
+    LayoutDashboard,
+    LoaderCircle,
+    MapPin,
+    RadioTower,
+    RefreshCw,
+    ShieldCheck,
+    Users,
+  } from "lucide-react"
+
+    import { apiFetch } from "@/lib/api"
+    import type {
+    Alert,
+    AlertListResponse,
+    Incident,
+    IncidentListResponse,
+    IncidentStatus,
+  } from "@/lib/types"
+
+
+    type DashboardStats = {
+    openIncidents: number
+    criticalIncidents: number
+    resolvedIncidents: number
+    unreadAlerts: number
+  }
+
+    const OPEN_STATUSES: IncidentStatus[] = [
+    "new",
+    "under_review",
+    "confirmed",
+    "assigned",
+    "in_progress",
+    ]
+
+
+    export default function DashboardPage() {
+    const [recentIncidents, setRecentIncidents] = useState<Incident[]>([])
+    const [recentAlerts, setRecentAlerts] = useState<Alert[]>([])
+    const [stats, setStats] = useState<DashboardStats>({
+    openIncidents: 0,
+    criticalIncidents: 0,
+    resolvedIncidents: 0,
+    unreadAlerts: 0,
+  })
+
+    const [loading, setLoading] = useState(true)
+    const [refreshing, setRefreshing] = useState(false)
+    const [error, setError] = useState("")
+    const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+
+    const loadDashboard = useCallback(async (manual = false) => {
+    if (manual) {
+    setRefreshing(true)
+  } else {
+    setLoading(true)
+  }
+
+    setError("")
+
+    try {
+    const [
+    recentResponse,
+    alertsResponse,
+    criticalResponse,
+    resolvedResponse,
+    ...openResponses
+    ] = await Promise.all([
+    apiFetch<IncidentListResponse>(
+    "/incidents?page=1&page_size=8",
+    ),
+    apiFetch<AlertListResponse>(
+    "/alerts?limit=6&offset=0",
+    ),
+    apiFetch<IncidentListResponse>(
+    "/incidents?page=1&page_size=1&priority=critical",
+    ),
+    apiFetch<IncidentListResponse>(
+    "/incidents?page=1&page_size=1&status=resolved",
+    ),
+    ...OPEN_STATUSES.map((status) =>
+    apiFetch<IncidentListResponse>(
+    /incidents?page=1&page_size=1&status=${status},
+    ),
+    ),
+    ])
+
+    const openIncidents = openResponses.reduce(
+    (total, response) => total + response.total,
+    0,
+    )
+
+    setRecentIncidents(recentResponse.items)
+    setRecentAlerts(alertsResponse.items)
+
+    setStats({
+    openIncidents,
+    criticalIncidents: criticalResponse.total,
+    resolvedIncidents: resolvedResponse.total,
+    unreadAlerts: alertsResponse.unread_count,
+  })
+
+    setLastUpdated(new Date())
+  } catch (requestError) {
+    setError(
+    requestError instanceof Error
+    ? requestError.message
+    : "Unable to load the command centre dashboard.",
+    )
+  } finally {
+    setLoading(false)
+    setRefreshing(false)
+  }
+  }, [])
+
+    useEffect(() => {
+    void loadDashboard()
+  }, [loadDashboard])
+
+    const incidentStatusBreakdown = useMemo(() => {
+    const counts = new Map<IncidentStatus, number>()
+
+    for (const incident of recentIncidents) {
+    counts.set(
+    incident.status,
+    (counts.get(incident.status) ?? 0) + 1,
+    )
+  }
+
+    return [
+  {
+    status: "new" as IncidentStatus,
+    label: "New",
+    value: counts.get("new") ?? 0,
+  },
+  {
+    status: "under_review" as IncidentStatus,
+    label: "Under review",
+    value: counts.get("under_review") ?? 0,
+  },
+  {
+    status: "assigned" as IncidentStatus,
+    label: "Assigned",
+    value: counts.get("assigned") ?? 0,
+  },
+  {
+    status: "in_progress" as IncidentStatus,
+    label: "In progress",
+    value: counts.get("in_progress") ?? 0,
+  },
+  {
+    status: "resolved" as IncidentStatus,
+    label: "Resolved",
+    value: counts.get("resolved") ?? 0,
+  },
+    ]
+  }, [recentIncidents])
+
+    if (loading) {
+    return (
+    <div className="flex min-h-[60vh] items-center justify-center">
+    <div className="flex items-center gap-3 text-sm text-muted-foreground">
+    <LoaderCircle className="size-5 animate-spin text-primary" />
+    Loading MCC Command Centre...
+    </div>
+    </div>
+    PS C:\Users\Qhobela\Downloads\MCC-Smart-City-full-project-feature-dockerize\MCC-Smart-City-full-project-feature-dockerize>
+
+    We now have the exact current dashboard loader, so we can replace it safely. The current page is still making the old Promise.all(...) group of incident/alert requests, and its status chart is counting only recentIncidents, not the true database totals.
+
+
+    For this change, leave everything from if (loading) { downward untouched.
+
+    Replace everything from the very first line:
+
+    "use client"
+    down to immediately before:
+
+    if (loading) {
+    with this complete block:
+
+    "use client"
+
+    import Link from "next/link"
+    import {
+    useCallback,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+  } from "react"
+    import {
+    Activity,
+    AlertTriangle,
+    ArrowRight,
+    Bell,
+    BrainCircuit,
+    Camera,
+    CheckCircle2,
+    CircleDot,
+    Clock3,
+    FileImage,
+    LayoutDashboard,
+    LoaderCircle,
+    MapPin,
+    RadioTower,
+    RefreshCw,
+    ShieldCheck,
+    Users,
+  } from "lucide-react"
+
+    import { apiFetch } from "@/lib/api"
+    import type {
+    Alert,
+    Incident,
+    IncidentStatus,
+  } from "@/lib/types"
+
+
+    type DashboardStats = {
+    openIncidents: number
+    criticalIncidents: number
+    resolvedIncidents: number
+    unreadAlerts: number
+  }
+
+
+    type DashboardSummaryResponse = {
+    stats: {
+    open_incidents: number
+    critical_incidents: number
+    resolved_incidents: number
+    unread_alerts: number
+  }
+    status_counts: Record<IncidentStatus, number>
+    recent_incidents: Incident[]
+    recent_alerts: Alert[]
+    generated_at: string
+  }
+
+
+    type DashboardLoadMode =
+    | "initial"
+    | "manual"
+    | "poll"
+
+
+    const INITIAL_STATUS_COUNTS: Record<IncidentStatus, number> = {
+    new: 0,
+    under_review: 0,
+    confirmed: 0,
+    assigned: 0,
+    in_progress: 0,
+    resolved: 0,
+    dismissed: 0,
+  }
+
+
+    const DASHBOARD_POLL_INTERVAL_MS = 10_000
+
+
+    export default function DashboardPage() {
+    const [recentIncidents, setRecentIncidents] = useState<Incident[]>([])
+    const [recentAlerts, setRecentAlerts] = useState<Alert[]>([])
+
+    const [stats, setStats] = useState<DashboardStats>({
+    openIncidents: 0,
+    criticalIncidents: 0,
+    resolvedIncidents: 0,
+    unreadAlerts: 0,
+  })
+
+    const [statusCounts, setStatusCounts] = useState<
+    Record<IncidentStatus, number>
+    >(INITIAL_STATUS_COUNTS)
+
+    const [loading, setLoading] = useState(true)
+    const [refreshing, setRefreshing] = useState(false)
+    const [error, setError] = useState("")
+    const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+
+    const requestInFlight = useRef(false)
+
+
+    const loadDashboard = useCallback(
+    async (
+    mode: DashboardLoadMode = "initial",
+    ) => {
+    if (requestInFlight.current) {
+    return
+  }
+
+    requestInFlight.current = true
+
+    if (mode === "initial") {
+    setLoading(true)
+  }
+
+    if (mode === "manual") {
+    setRefreshing(true)
+  }
+
+    try {
+    const response =
+    await apiFetch<DashboardSummaryResponse>(
+    "/dashboard/summary",
+    )
+
+    setRecentIncidents(
+    response.recent_incidents,
+    )
+
+    setRecentAlerts(
+    response.recent_alerts,
+    )
+
+    setStats({
+    openIncidents:
+    response.stats.open_incidents,
+    criticalIncidents:
+    response.stats.critical_incidents,
+    resolvedIncidents:
+    response.stats.resolved_incidents,
+    unreadAlerts:
+    response.stats.unread_alerts,
+  })
+
+    setStatusCounts(
+    response.status_counts,
+    )
+
+    const generatedAt = new Date(
+    response.generated_at,
+    )
+
+    setLastUpdated(
+    Number.isNaN(generatedAt.getTime())
+    ? new Date()
+    : generatedAt,
+    )
+
+    setError("")
+  } catch (requestError) {
+    setError(
+    requestError instanceof Error
+    ? requestError.message
+    : "Unable to load the command centre dashboard.",
+    )
+  } finally {
+    requestInFlight.current = false
+
+    if (mode === "initial") {
+    setLoading(false)
+  }
+
+    if (mode === "manual") {
+    setRefreshing(false)
+  }
+  }
+  },
+    [],
+    )
+
+
+    useEffect(() => {
+    void loadDashboard("initial")
+
+    const pollDashboard = () => {
+    if (
+    document.visibilityState === "visible"
+    ) {
+    void loadDashboard("poll")
+  }
+  }
+
+    const intervalId = window.setInterval(
+    pollDashboard,
+    DASHBOARD_POLL_INTERVAL_MS,
+    )
+
+    const handleVisibilityChange = () => {
+    if (
+    document.visibilityState === "visible"
+    ) {
+    void loadDashboard("poll")
+  }
+  }
+
+    document.addEventListener(
+    "visibilitychange",
+    handleVisibilityChange,
+    )
+
+    return () => {
+    window.clearInterval(intervalId)
+
+    document.removeEventListener(
+    "visibilitychange",
+    handleVisibilityChange,
+    )
+  }
+  }, [loadDashboard])
+
+
+    const incidentStatusBreakdown = useMemo(
+    () => [
+  {
+    status: "new" as IncidentStatus,
+    label: "New",
+    value: statusCounts.new,
+  },
+  {
+    status: "under_review" as IncidentStatus,
+    label: "Under review",
+    value: statusCounts.under_review,
+  },
+  {
+    status: "assigned" as IncidentStatus,
+    label: "Assigned",
+    value: statusCounts.assigned,
+  },
+  {
+    status: "in_progress" as IncidentStatus,
+    label: "In progress",
+    value: statusCounts.in_progress,
+  },
+  {
+    status: "resolved" as IncidentStatus,
+    label: "Resolved",
+    value: statusCounts.resolved,
+  },
+    ],
+    [statusCounts],
+    )
+    What this changes
+    We now have only:
+
+    GET /api/v1/dashboard/summary
+    for the dashboard data.
+
+    The behavior becomes:
+
+    Dashboard opens
+    │
+    └── /dashboard/summary
+    │
+    ├── KPIs
+    ├── exact status counts
+    ├── recent incidents
+    └── recent alerts
+
+    10 seconds
+    │
+    └── silent /dashboard/summary
+    │
+    └── update UI
+
+    10 seconds
+    │
+    └── silent /dashboard/summary
+    There are several protections built in here:
+
+    The full loading screen appears only on initial load.
+
+    Polling every 10 seconds does not trigger the loading screen.
+
+    The existing Refresh button still works because it currently calls loadDashboard(true), but we need to change that one line because the function now accepts "manual" instead of true.
+
+    Polling stops making requests while the browser tab is hidden.
+
+    Returning to the dashboard tab immediately refreshes the data.
+
+    requestInFlight prevents a slow request from overlapping with the next 10-second request.
+
+    Status bars now use the backend's exact database totals rather than counting only the eight most recent incidents.
+
+    One small change farther down the file
+    Your existing Refresh button currently has:
+
+    onClick={() => void loadDashboard(true)}
+    Change only that line to:
+
+    onClick={() => void loadDashboard("manual")}
+    You can locate it quickly with:
+
+    Select-String `
+".\mcc-smart-city-frontend\app\(dashboard)\page.tsx" `
+    -Pattern "loadDashboard"
+    After the changes, there should be no:
+
+    loadDashboard(true)
+    and no old frontend calls such as:
+
+    /incidents?page=1&page_size=8
+    /alerts?limit=6&offset=0
+    /incidents?page=1&page_size=1&priority=critical
+    Verify that with:
+
+    Select-String `
+".\mcc-smart-city-frontend\app\(dashboard)\page.tsx" `
+    -Pattern "dashboard/summary|loadDashboard|page_size=8|priority=critical|OPEN_STATUSES|AlertListResponse|IncidentListResponse"
+    What we expect is essentially:
+
+    "/dashboard/summary"
+    loadDashboard("initial")
+    loadDashboard("poll")
+    loadDashboard("manual")
+    and no OPEN_STATUSES, AlertListResponse, IncidentListResponse, or old dashboard incident-query calls.
+
+    Then run the TypeScript check before rebuilding anything:
+
+    docker compose exec frontend pnpm exec tsc --noEmit
+    Send me that output. If TypeScript is clean, we'll run the dashboard and prove the actual 10-second polling from the backend logs.
+
+
+
+    Pasted markdown(2).md
+    File
+    here's the file, edit it
+
+    Done. I edited the exact dashboard file you uploaded, replacing the old multi-request loader that used the separate incident/alert response types and requests.
+
+
+    The edited version now uses /dashboard/summary, silent 10-second polling, manual refresh, request-overlap protection, tab-visibility handling, and backend-provided status totals.
+
+    Download the edited dashboard page.tsx
+
+    Replace:
+
+    mcc-smart-city-frontend/app/(dashboard)/page.tsx
+    with this file. Then we'll run the TypeScript check and verify the polling from the backend logs.
+
+
+    dashboard-page-10s-polling.tsx
+    Code
+
+
+    Library
+    /
+    dashboard-page-10s-polling.tsx
+
+
+    "use client"
+
+    import Link from "next/link"
+    import {
+    useCallback,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+  } from "react"
+    import {
+    Activity,
+    AlertTriangle,
+    ArrowRight,
+    Bell,
+    BrainCircuit,
+    Camera,
+    CheckCircle2,
+    CircleDot,
+    Clock3,
+    FileImage,
+    LayoutDashboard,
+    LoaderCircle,
+    MapPin,
+    RadioTower,
+    RefreshCw,
+    ShieldCheck,
+    Users,
+  } from "lucide-react"
+
+    import { apiFetch } from "@/lib/api"
+    import type {
+    Alert,
+    Incident,
+    IncidentStatus,
+  } from "@/lib/types"
+
+
+    type DashboardStats = {
+    openIncidents: number
+    criticalIncidents: number
+    resolvedIncidents: number
+    unreadAlerts: number
+  }
+
+
+    type DashboardSummaryResponse = {
+    stats: {
+    open_incidents: number
+    critical_incidents: number
+    resolved_incidents: number
+    unread_alerts: number
+  }
+    status_counts: Record<IncidentStatus, number>
+    recent_incidents: Incident[]
+    recent_alerts: Alert[]
+    generated_at: string
+  }
+
+
+    type DashboardLoadMode =
+    | "initial"
+    | "manual"
+    | "poll"
+
+
+    const INITIAL_STATUS_COUNTS: Record<IncidentStatus, number> = {
+    new: 0,
+    under_review: 0,
+    confirmed: 0,
+    assigned: 0,
+    in_progress: 0,
+    resolved: 0,
+    dismissed: 0,
+  }
+
+
+    const DASHBOARD_POLL_INTERVAL_MS = 10_000
+
+
+    export default function DashboardPage() {
+    const [recentIncidents, setRecentIncidents] = useState<Incident[]>([])
+    const [recentAlerts, setRecentAlerts] = useState<Alert[]>([])
+
+    const [stats, setStats] = useState<DashboardStats>({
+    openIncidents: 0,
+    criticalIncidents: 0,
+    resolvedIncidents: 0,
+    unreadAlerts: 0,
+  })
+
+    const [statusCounts, setStatusCounts] = useState<
+    Record<IncidentStatus, number>
+    >(INITIAL_STATUS_COUNTS)
+
+    const [loading, setLoading] = useState(true)
+    const [refreshing, setRefreshing] = useState(false)
+    const [error, setError] = useState("")
+    const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+
+    const requestInFlight = useRef(false)
+
+
+    const loadDashboard = useCallback(
+    async (
+    mode: DashboardLoadMode = "initial",
+    ) => {
+    if (requestInFlight.current) {
+    return
+  }
+
+    requestInFlight.current = true
+
+    if (mode === "initial") {
+    setLoading(true)
+  }
+
+    if (mode === "manual") {
+    setRefreshing(true)
+  }
+
+    try {
+    const response =
+    await apiFetch<DashboardSummaryResponse>(
+    "/dashboard/summary",
+    )
+
+    setRecentIncidents(
+    response.recent_incidents,
+    )
+
+    setRecentAlerts(
+    response.recent_alerts,
+    )
+
+    setStats({
+    openIncidents:
+    response.stats.open_incidents,
+    criticalIncidents:
+    response.stats.critical_incidents,
+    resolvedIncidents:
+    response.stats.resolved_incidents,
+    unreadAlerts:
+    response.stats.unread_alerts,
+  })
+
+    setStatusCounts(
+    response.status_counts,
+    )
+
+    const generatedAt = new Date(
+    response.generated_at,
+    )
+
+    setLastUpdated(
+    Number.isNaN(generatedAt.getTime())
+    ? new Date()
+    : generatedAt,
+    )
+
+    setError("")
+  } catch (requestError) {
+    setError(
+    requestError instanceof Error
+    ? requestError.message
+    : "Unable to load the command centre dashboard.",
+    )
+  } finally {
+    requestInFlight.current = false
+
+    if (mode === "initial") {
+    setLoading(false)
+  }
+
+    if (mode === "manual") {
+    setRefreshing(false)
+  }
+  }
+  },
+    [],
+    )
+
+
+    useEffect(() => {
+    void loadDashboard("initial")
+
+    const pollDashboard = () => {
+    if (
+    document.visibilityState === "visible"
+    ) {
+    void loadDashboard("poll")
+  }
+  }
+
+    const intervalId = window.setInterval(
+    pollDashboard,
+    DASHBOARD_POLL_INTERVAL_MS,
+    )
+
+    const handleVisibilityChange = () => {
+    if (
+    document.visibilityState === "visible"
+    ) {
+    void loadDashboard("poll")
+  }
+  }
+
+    document.addEventListener(
+    "visibilitychange",
+    handleVisibilityChange,
+    )
+
+    return () => {
+    window.clearInterval(intervalId)
+
+    document.removeEventListener(
+    "visibilitychange",
+    handleVisibilityChange,
+    )
+  }
+  }, [loadDashboard])
+
+
+    const incidentStatusBreakdown = useMemo(
+    () => [
+  {
+    status: "new" as IncidentStatus,
+    label: "New",
+    value: statusCounts.new,
+  },
+  {
+    status: "under_review" as IncidentStatus,
+    label: "Under review",
+    value: statusCounts.under_review,
+  },
+  {
+    status: "assigned" as IncidentStatus,
+    label: "Assigned",
+    value: statusCounts.assigned,
+  },
+  {
+    status: "in_progress" as IncidentStatus,
+    label: "In progress",
+    value: statusCounts.in_progress,
+  },
+  {
+    status: "resolved" as IncidentStatus,
+    label: "Resolved",
+    value: statusCounts.resolved,
+  },
+    ],
+    [statusCounts],
+    )
+
+    if (loading) {
+    return (
+    <div className="flex min-h-[60vh] items-center justify-center">
+    <div className="flex items-center gap-3 text-sm text-muted-foreground">
+    <LoaderCircle className="size-5 animate-spin text-primary" />
+    Loading MCC Command Centre...
+    </div>
+    </div>
+    )
+  }
+
+    return (
+    <>
+    <section className="overflow-hidden rounded-2xl border bg-card">
+    <div className="relative p-5 md:p-7">
+    <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,hsl(var(--primary)/0.13),transparent_38%)]" />
+
+    <div className="relative flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+    <div className="max-w-3xl">
+    <div className="mb-3 inline-flex items-center gap-2 rounded-full border bg-background/70 px-3 py-1 text-xs font-medium text-muted-foreground">
+    <CircleDot className="size-3.5 text-emerald-500" />
+    MCC operational platform online
+    </div>
+
+    <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">
+    Smart City Command Centre
+    </h2>
+
+    <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+    Central operational view for municipal incidents,
+    enforcement evidence, officer assignments, and system
+    notifications across Maseru City Council.
+    </p>
+
+    <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-muted-foreground">
+    <span className="inline-flex items-center gap-1.5">
+    <ShieldCheck className="size-3.5 text-emerald-500" />
+    Authentication & RBAC active
+    </span>
+
+    <span className="inline-flex items-center gap-1.5">
+    <Bell className="size-3.5 text-primary" />
+    Alert workflow active
+    </span>
+
+    <span className="inline-flex items-center gap-1.5">
+    <Clock3 className="size-3.5" />
+  {lastUpdated
+    ? `Updated ${formatTime(lastUpdated)}`
+    : "Awaiting refresh"}
+  </span>
+</div>
+</div>
+
+  <div className="flex flex-wrap gap-2">
+    <button
+        type="button"
+        onClick={() => void loadDashboard("manual")}
+        disabled={refreshing}
+        className="inline-flex h-10 items-center gap-2 rounded-md border bg-background px-4 text-sm font-medium transition hover:bg-muted disabled:opacity-50"
+    >
+      <RefreshCw
+          className={`size-4 ${
+              refreshing ? "animate-spin" : ""
+          }`}
+      />
+      Refresh
+    </button>
+
+    <Link
+        href="/incidents"
+        className="inline-flex h-10 items-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition hover:opacity-90"
+    >
+      <AlertTriangle className="size-4" />
+      Open incidents
+    </Link>
+  </div>
+</div>
+</div>
+</section>
+
+{error && (
+      <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+        {error}
+      </div>
+  )}
+
+  <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+    <KpiCard
+        label="Open incidents"
+        value={stats.openIncidents}
+        detail="Requires operational follow-up"
+        icon={<AlertTriangle className="size-5" />}
+        href="/incidents"
+        tone="warning"
+    />
+
+    <KpiCard
+        label="Critical incidents"
+        value={stats.criticalIncidents}
+        detail="All critical-priority records"
+        icon={<Activity className="size-5" />}
+        href="/incidents?priority=critical"
+        tone="critical"
+    />
+
+    <KpiCard
+        label="Unread alerts"
+        value={stats.unreadAlerts}
+        detail="Notifications awaiting review"
+        icon={<Bell className="size-5" />}
+        href="/notifications"
+        tone="primary"
+    />
+
+    <KpiCard
+        label="Resolved incidents"
+        value={stats.resolvedIncidents}
+        detail="Completed incident records"
+        icon={<CheckCircle2 className="size-5" />}
+        href="/incidents?status=resolved"
+        tone="good"
+    />
+  </section>
+
+  <section className="grid gap-4 xl:grid-cols-[1.65fr_1fr]">
+    <div className="overflow-hidden rounded-xl border bg-card">
+      <SectionHeader
+          title="Recent incidents"
+          description="Latest incident records visible to your account."
+          href="/incidents"
+          actionLabel="View all incidents"
+      />
+
+      <div className="divide-y">
+        {recentIncidents.length === 0 ? (
+            <EmptyState
+                icon={<AlertTriangle className="size-6" />}
+                title="No incidents available"
+                description="New incident records will appear here as they are reported."
+            />
+        ) : (
+            recentIncidents.slice(0, 6).map((incident) => (
+                <Link
+                    key={incident.id}
+                    href="/incidents"
+                    className="flex flex-col gap-3 p-4 transition hover:bg-muted/35 sm:flex-row sm:items-center"
+                >
+                  <div
+                      className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${priorityIconClass(
+                          incident.priority,
+                      )}`}
+                  >
+                    <AlertTriangle className="size-4" />
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="truncate text-sm font-medium">
+                        {incident.title}
+                      </p>
+
+                      <StatusPill status={incident.status} />
+
+                      <PriorityPill priority={incident.priority} />
+                    </div>
+
+                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                      <span className="font-mono">
+                        {incident.incident_number}
+                      </span>
+
+                      {incident.location_name && (
+                          <span className="inline-flex items-center gap-1">
+                          <MapPin className="size-3" />
+                            {incident.location_name}
+                        </span>
+                      )}
+
+                      <span>
+                        {formatRelativeTime(incident.created_at)}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                    {incident.evidence_count > 0 && (
+                        <span className="inline-flex items-center gap-1">
+                        <FileImage className="size-3.5" />
+                          {incident.evidence_count}
+                      </span>
+                    )}
+
+                    <ArrowRight className="size-4" />
+                  </div>
+                </Link>
+            ))
+        )}
+      </div>
+    </div>
+
+    <div className="overflow-hidden rounded-xl border bg-card">
+      <SectionHeader
+          title="Recent notifications"
+          description="Operational alerts addressed to you."
+          href="/notifications"
+          actionLabel="Notification centre"
+      />
+
+      <div className="divide-y">
+        {recentAlerts.length === 0 ? (
+            <EmptyState
+                icon={<Bell className="size-6" />}
+                title="No notifications"
+                description="Assignments, evidence activity, and status changes will appear here."
+            />
+        ) : (
+            recentAlerts.slice(0, 6).map((alert) => (
+                <Link
+                    key={alert.id}
+                    href={alert.action_url || "/notifications"}
+                    className={`block p-4 transition hover:bg-muted/35 ${
+                        alert.is_read ? "" : "bg-primary/[0.035]"
+                    }`}
+                >
+                  <div className="flex gap-3">
+                    <span
+                        className={`mt-1 size-2 shrink-0 rounded-full ${alertSeverityDot(
+                            alert.severity,
+                            alert.is_read,
+                        )}`}
+                    />
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start gap-2">
+                        <p className="line-clamp-1 flex-1 text-sm font-medium">
+                          {alert.title}
+                        </p>
+
+                        {!alert.is_read && (
+                            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase text-primary">
+                            New
+                          </span>
+                        )}
+                      </div>
+
+                      <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">
+                        {alert.message}
+                      </p>
+
+                      <div className="mt-2 flex items-center justify-between text-[11px] text-muted-foreground">
+                        <span className="capitalize">
+                          {alert.severity}
+                        </span>
+
+                        <span>
+                          {formatRelativeTime(alert.created_at)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+            ))
+        )}
+      </div>
+    </div>
+  </section>
+
+  <section className="grid gap-4 xl:grid-cols-3">
+    <div className="rounded-xl border bg-card p-5 xl:col-span-2">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h3 className="text-base font-semibold">
+            Recent incident status
+          </h3>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Distribution within the latest incident records.
+          </p>
+        </div>
+
+        <LayoutDashboard className="size-5 text-muted-foreground" />
+      </div>
+
+      <div className="mt-6 space-y-4">
+        {incidentStatusBreakdown.map((item) => {
+          const max = Math.max(
+              1,
+              ...incidentStatusBreakdown.map(
+                  (entry) => entry.value,
+              ),
+          )
+          const width = Math.max(
+              item.value > 0 ? 7 : 0,
+              (item.value / max) * 100,
+          )
+
+          return (
+              <div key={item.status}>
+                <div className="mb-1.5 flex items-center justify-between text-xs">
+                    <span className="font-medium">
+                      {item.label}
+                    </span>
+                  <span className="font-mono text-muted-foreground">
+                      {item.value}
+                    </span>
+                </div>
+
+                <div className="h-2 overflow-hidden rounded-full bg-muted">
+                  <div
+                      className={`h-full rounded-full ${statusBarClass(
+                          item.status,
+                      )}`}
+                      style={{ width: `${width}%` }}
+                  />
+                </div>
+              </div>
+          )
+        })}
+      </div>
+    </div>
+
+    <div className="rounded-xl border bg-card p-5">
+      <div className="flex items-start justify-between">
+        <div>
+          <h3 className="text-base font-semibold">
+            Quick actions
+          </h3>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Common operational destinations.
+          </p>
+        </div>
+
+        <Activity className="size-5 text-muted-foreground" />
+      </div>
+
+      <div className="mt-5 grid gap-2">
+        <QuickAction
+            href="/incidents"
+            icon={<AlertTriangle className="size-4" />}
+            title="Incident management"
+            description="Review, assign and resolve incidents"
+        />
+
+        <QuickAction
+            href="/notifications"
+            icon={<Bell className="size-4" />}
+            title="Notification centre"
+            description="Review and acknowledge alerts"
+        />
+
+        <QuickAction
+            href="/administration/users"
+            icon={<Users className="size-4" />}
+            title="User management"
+            description="Manage authorised MCC users"
+        />
+
+        <QuickAction
+            href="/city-map"
+            icon={<MapPin className="size-4" />}
+            title="City map"
+            description="GIS integration workspace"
+        />
+      </div>
+    </div>
+  </section>
+
+  <section className="rounded-xl border bg-card p-5">
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+      <div>
+        <h3 className="text-base font-semibold">
+          Platform readiness
+        </h3>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Current implementation state of the MCC Smart City
+          operational platform.
+        </p>
+      </div>
+
+      <span className="text-xs text-muted-foreground">
+            Software-first deployment phase
+          </span>
+    </div>
+
+    <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+      <ReadinessCard
+          icon={<ShieldCheck className="size-5" />}
+          title="Identity & access"
+          description="Authentication, roles, permissions and dynamic navigation."
+          status="Operational"
+          state="ready"
+      />
+
+      <ReadinessCard
+          icon={<AlertTriangle className="size-5" />}
+          title="Incidents & evidence"
+          description="Workflow, assignments, timelines and protected evidence."
+          status="Operational"
+          state="ready"
+      />
+
+      <ReadinessCard
+          icon={<Bell className="size-5" />}
+          title="Alerts & notifications"
+          description="Personal alert inbox and incident-driven notifications."
+          status="Operational"
+          state="ready"
+      />
+
+      <ReadinessCard
+          icon={<MapPin className="size-5" />}
+          title="GIS & zones"
+          description="Locations, enforcement zones and city map data."
+          status="Next phase"
+          state="planned"
+      />
+
+      <ReadinessCard
+          icon={<Camera className="size-5" />}
+          title="Camera monitoring"
+          description="Live feeds and field-camera connectivity."
+          status="Awaiting camera"
+          state="pending"
+      />
+
+      <ReadinessCard
+          icon={<BrainCircuit className="size-5" />}
+          title="Edge AI processing"
+          description="YOLO inference and automated incident generation."
+          status="Awaiting Jetson"
+          state="pending"
+      />
+    </div>
+  </section>
+
+  <section className="grid gap-4 md:grid-cols-2">
+    <div className="rounded-xl border border-dashed bg-muted/15 p-5">
+      <div className="flex items-start gap-4">
+        <div className="rounded-lg bg-muted p-3 text-muted-foreground">
+          <RadioTower className="size-5" />
+        </div>
+
+        <div>
+          <h3 className="text-sm font-semibold">
+            Live infrastructure monitoring
+          </h3>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">
+            Camera, NanoStation and Jetson health metrics will
+            populate this panel after field hardware integration.
+            No simulated device status is shown here.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div className="rounded-xl border border-dashed bg-muted/15 p-5">
+      <div className="flex items-start gap-4">
+        <div className="rounded-lg bg-muted p-3 text-muted-foreground">
+          <BrainCircuit className="size-5" />
+        </div>
+
+        <div>
+          <h3 className="text-sm font-semibold">
+            AI detection pipeline
+          </h3>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">
+            Trained YOLO models will later feed detections into the
+            existing Incident → Evidence → Alert workflow without
+            replacing the operational modules already completed.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+</>
+)
+}
+
+
+  function KpiCard({
+                     label,
+                     value,
+                     detail,
+                     icon,
+                     href,
+                     tone,
+                   }: {
+    label: string
+    value: number
+    detail: string
+    icon: React.ReactNode
+    href: string
+    tone: "critical" | "warning" | "primary" | "good"
+  }) {
+    const toneClasses = {
+      critical: "bg-destructive/10 text-destructive",
+      warning: "bg-amber-500/10 text-amber-500",
+      primary: "bg-primary/10 text-primary",
+      good: "bg-emerald-500/10 text-emerald-500",
+    }
+
+    return (
+        <Link
+            href={href}
+            className="group rounded-xl border bg-card p-4 transition hover:border-primary/30 hover:bg-muted/20"
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-medium text-muted-foreground">
+                {label}
+              </p>
+
+              <p className="mt-2 font-mono text-2xl font-semibold tracking-tight md:text-3xl">
+                {value}
+              </p>
+            </div>
+
+            <div
+                className={`rounded-lg p-2.5 ${toneClasses[tone]}`}
+            >
+              {icon}
+            </div>
+          </div>
+
+          <div className="mt-3 flex items-center justify-between gap-2">
+            <p className="line-clamp-1 text-[11px] text-muted-foreground">
+              {detail}
+            </p>
+
+            <ArrowRight className="size-3.5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
+          </div>
+        </Link>
+    )
+  }
+
+
+  function SectionHeader({
+                           title,
+                           description,
+                           href,
+                           actionLabel,
+                         }: {
+    title: string
+    description: string
+    href: string
+    actionLabel: string
+  }) {
+    return (
+        <div className="flex items-start justify-between gap-4 border-b px-4 py-4">
+          <div>
+            <h3 className="text-base font-semibold">{title}</h3>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {description}
+            </p>
+          </div>
+
+          <Link
+              href={href}
+              className="hidden shrink-0 items-center gap-1 text-xs font-medium text-primary hover:underline sm:inline-flex"
+          >
+            {actionLabel}
+            <ArrowRight className="size-3.5" />
+          </Link>
+        </div>
+    )
+  }
+
+
+  function EmptyState({
+                        icon,
+                        title,
+                        description,
+                      }: {
+    icon: React.ReactNode
+    title: string
+    description: string
+  }) {
+    return (
+        <div className="flex min-h-48 flex-col items-center justify-center p-8 text-center">
+          <div className="rounded-xl bg-muted p-3 text-muted-foreground">
+            {icon}
+          </div>
+          <p className="mt-3 text-sm font-medium">{title}</p>
+          <p className="mt-1 max-w-xs text-xs leading-5 text-muted-foreground">
+            {description}
+          </p>
+        </div>
+    )
+  }
+
+
+  function QuickAction({
+                         href,
+                         icon,
+                         title,
+                         description,
+                       }: {
+    href: string
+    icon: React.ReactNode
+    title: string
+    description: string
+  }) {
+    return (
+        <Link
+            href={href}
+            className="group flex items-center gap-3 rounded-lg border p-3 transition hover:border-primary/30 hover:bg-muted/25"
+        >
+          <div className="rounded-md bg-primary/10 p-2 text-primary">
+            {icon}
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium">{title}</p>
+            <p className="truncate text-[11px] text-muted-foreground">
+              {description}
+            </p>
+          </div>
+
+          <ArrowRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
+        </Link>
+    )
+  }
+
+
+  function ReadinessCard({
+                           icon,
+                           title,
+                           description,
+                           status,
+                           state,
+                         }: {
+    icon: React.ReactNode
+    title: string
+    description: string
+    status: string
+    state: "ready" | "planned" | "pending"
+  }) {
+    const classes = {
+      ready: {
+        icon: "bg-emerald-500/10 text-emerald-500",
+        badge: "bg-emerald-500/10 text-emerald-500",
+      },
+      planned: {
+        icon: "bg-primary/10 text-primary",
+        badge: "bg-primary/10 text-primary",
+      },
+      pending: {
+        icon: "bg-muted text-muted-foreground",
+        badge: "bg-muted text-muted-foreground",
+      },
+    }
+
+    return (
+        <div className="rounded-lg border bg-background/40 p-4">
+          <div className="flex items-start gap-3">
+            <div className={`rounded-lg p-2.5 ${classes[state].icon}`}>
+              {icon}
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-sm font-medium">{title}</p>
+
+                <span
+                    className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${classes[state].badge}`}
+                >
+              {status}
+            </span>
+              </div>
+
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                {description}
+              </p>
+            </div>
+          </div>
+        </div>
+    )
+  }
+
+
+  function StatusPill({
+                        status,
+                      }: {
+    status: IncidentStatus
+  }) {
+    return (
+        <span
+            className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusPillClass(
+                status,
+            )}`}
+        >
+      {humanize(status)}
+    </span>
+    )
+  }
+
+
+  function PriorityPill({
+                          priority,
+                        }: {
+    priority: Incident["priority"]
+  }) {
+    const classes = {
+      low: "bg-blue-500/10 text-blue-500",
+      medium: "bg-amber-500/10 text-amber-500",
+      high: "bg-orange-500/10 text-orange-500",
+      critical: "bg-destructive/10 text-destructive",
+    }
+
+    return (
+        <span
+            className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${classes[priority]}`}
+        >
+      {humanize(priority)}
+    </span>
+    )
+  }
+
+
+  function statusPillClass(status: IncidentStatus) {
+    switch (status) {
+      case "new":
+        return "bg-destructive/10 text-destructive"
+      case "under_review":
+        return "bg-amber-500/10 text-amber-500"
+      case "confirmed":
+        return "bg-orange-500/10 text-orange-500"
+      case "assigned":
+        return "bg-blue-500/10 text-blue-500"
+      case "in_progress":
+        return "bg-primary/10 text-primary"
+      case "resolved":
+        return "bg-emerald-500/10 text-emerald-500"
+      case "dismissed":
+        return "bg-muted text-muted-foreground"
+    }
+  }
+
+
+  function statusBarClass(status: IncidentStatus) {
+    switch (status) {
+      case "new":
+        return "bg-destructive"
+      case "under_review":
+        return "bg-amber-500"
+      case "confirmed":
+        return "bg-orange-500"
+      case "assigned":
+        return "bg-blue-500"
+      case "in_progress":
+        return "bg-primary"
+      case "resolved":
+        return "bg-emerald-500"
+      case "dismissed":
+        return "bg-muted-foreground"
+    }
+  }
+
+
+  function priorityIconClass(
+      priority: Incident["priority"],
+  ) {
+    switch (priority) {
+      case "critical":
+        return "bg-destructive/10 text-destructive"
+      case "high":
+        return "bg-orange-500/10 text-orange-500"
+      case "medium":
+        return "bg-amber-500/10 text-amber-500"
+      case "low":
+        return "bg-blue-500/10 text-blue-500"
+    }
+  }
+
+
+  function alertSeverityDot(
+      severity: Alert["severity"],
+      isRead: boolean,
+  ) {
+    if (isRead) {
+      return "bg-muted-foreground/40"
+    }
+
+    switch (severity) {
+      case "critical":
+        return "bg-destructive"
+      case "high":
+        return "bg-orange-500"
+      case "medium":
+        return "bg-amber-500"
+      case "low":
+        return "bg-blue-500"
+      case "info":
+        return "bg-primary"
+    }
+  }
+
+
+  function humanize(value: string) {
+    return value
+        .replace(/_/g, " ")
+        .replace(/\b\w/g, (character) =>
+            character.toUpperCase(),
+        )
+  }
+
+
+  function formatTime(value: Date) {
+    return new Intl.DateTimeFormat("en-LS", {
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(value)
+  }
+
+
+  function formatRelativeTime(value: string) {
+    const time = new Date(value).getTime()
+
+    if (Number.isNaN(time)) {
+      return "Unknown time"
+    }
+
+    const elapsedSeconds = Math.max(
+        0,
+        Math.floor((Date.now() - time) / 1000),
+    )
+
+    if (elapsedSeconds < 60) {
+      return "just now"
+    }
+
+    const minutes = Math.floor(elapsedSeconds / 60)
+
+    if (minutes < 60) {
+      return `${minutes}m ago`
+    }
+
+    const hours = Math.floor(minutes / 60)
+
+    if (hours < 24) {
+      return `${hours}h ago`
+    }
+
+    const days = Math.floor(hours / 24)
+
+    if (days < 7) {
+      return `${days}d ago`
+    }
+
+    return new Intl.DateTimeFormat("en-LS", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    }).format(new Date(value))
+  }
+  ```

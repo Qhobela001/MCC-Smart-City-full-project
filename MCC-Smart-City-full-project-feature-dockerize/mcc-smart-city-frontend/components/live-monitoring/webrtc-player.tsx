@@ -221,7 +221,7 @@ export function WebRTCPlayer({
           <TriangleAlert className="size-8 text-amber-400" />
           <p className="max-w-md text-sm">{message}</p>
           <p className="text-xs text-white/55">
-            Check camera availability, RTSP configuration and browser-compatible codec settings.
+            Check camera availability, gateway publisher status and browser-compatible codec settings.
           </p>
         </div>
       )}

@@ -21,6 +21,8 @@ from app.modules.cameras.models import Camera
 from app.modules.cameras import repository as camera_repository
 from app.modules.live_streams.schemas import (
     GatewayStatusRead,
+    GatewayCameraConfigRead,
+    GatewayCameraRegistryResponse,
     LiveCameraRead,
     LiveStreamListResponse,
     LiveStreamSessionResponse,
@@ -118,14 +120,49 @@ def _location_values(camera: Camera) -> tuple[str | None, float | None, float | 
     )
 
 
+def _stream_protocol(camera: Camera) -> str:
+    return (camera.stream_protocol or "rtsp").strip().lower()
+
+
+def _stream_path_value(camera: Camera) -> str:
+    return (camera.rtsp_path or "").strip().strip("/")
+
+
+def _is_v380_camera(camera: Camera) -> bool:
+    protocol = _stream_protocol(camera)
+    if protocol in {"v380", "v380-legacy", "macrovideo"}:
+        return True
+
+    # Compatibility with the existing Camera & Device Management form:
+    # until the UI exposes a dedicated V380 option, port 8800 + a numeric
+    # stream path is treated as a V380 device ID.
+    path = _stream_path_value(camera)
+    return (camera.rtsp_port or 0) == 8800 and path.isdigit()
+
+
+def _v380_device_id(camera: Camera) -> int | None:
+    path = _stream_path_value(camera)
+    if not path.isdigit():
+        return None
+    value = int(path)
+    return value if value > 0 else None
+
+
 def _is_stream_configured(camera: Camera) -> bool:
-    protocol = (camera.stream_protocol or "rtsp").strip().lower()
+    if (
+        not camera.is_active
+        or not camera.ip_address
+        or camera.stream_status == "disabled"
+    ):
+        return False
+
+    if _is_v380_camera(camera):
+        return _v380_device_id(camera) is not None
+
+    protocol = _stream_protocol(camera)
     return bool(
-        camera.is_active
-        and camera.ip_address
-        and camera.rtsp_path
+        camera.rtsp_path
         and protocol in {"rtsp", "rtsps"}
-        and camera.stream_status != "disabled"
     )
 
 
@@ -153,7 +190,15 @@ def _camera_read(
         latitude=latitude,
         longitude=longitude,
         status=str(camera.status),
-        stream_status=str(camera.stream_status),
+        stream_status=(
+            "online"
+            if path_state is not None and bool(path_state.get("ready"))
+            else (
+                "offline"
+                if _is_v380_camera(camera)
+                else str(camera.stream_status)
+            )
+        ),
         ai_enabled=bool(camera.ai_enabled),
         is_active=bool(camera.is_active),
         assigned_jetson_identifier=(
@@ -317,7 +362,7 @@ def _camera_source_url(camera: Camera) -> str:
             "Camera RTSP stream is not configured in Camera & Device Management."
         )
 
-    protocol = (camera.stream_protocol or "rtsp").strip().lower()
+    protocol = _stream_protocol(camera)
     if protocol not in {"rtsp", "rtsps"}:
         raise StreamNotConfiguredError(
             "Live Monitoring currently supports RTSP/RTSPS camera sources."
@@ -342,6 +387,17 @@ def _camera_source_url(camera: Camera) -> str:
 
 def sync_camera(camera: Camera) -> str:
     path = gateway_path_for(camera.camera_identifier)
+
+    # V380 cameras are push sources. The persistent camera-gateway service
+    # publishes them into this path, therefore FastAPI must not configure
+    # MediaMTX to pull RTSP directly from the camera.
+    if _is_v380_camera(camera):
+        if not _is_stream_configured(camera):
+            raise StreamNotConfiguredError(
+                "V380 camera requires an IP address, port 8800 and numeric device ID."
+            )
+        return path
+
     source_url = _camera_source_url(camera)
     encoded_path = quote(path, safe="")
 
@@ -414,6 +470,63 @@ def sync_all(db: Session) -> SyncAllResponse:
         generated_at=_utcnow(),
     )
 
+
+
+def _v380_credentials(camera: Camera) -> tuple[str, str]:
+    credentials = _credential_value(camera)
+    if credentials is not None:
+        return credentials
+
+    return (
+        os.getenv("V380_DEFAULT_USERNAME", "admin"),
+        os.getenv("V380_DEFAULT_PASSWORD", ""),
+    )
+
+
+def list_gateway_camera_configs(
+    db: Session,
+) -> GatewayCameraRegistryResponse:
+    cameras = list(
+        db.scalars(
+            select(Camera)
+            .where(Camera.is_active.is_(True))
+            .order_by(Camera.camera_identifier.asc())
+        ).unique().all()
+    )
+
+    items: list[GatewayCameraConfigRead] = []
+    for camera in cameras:
+        if not _is_v380_camera(camera):
+            continue
+        if not _is_stream_configured(camera):
+            continue
+
+        device_id = _v380_device_id(camera)
+        if device_id is None:
+            continue
+
+        username, password = _v380_credentials(camera)
+        items.append(
+            GatewayCameraConfigRead(
+                camera_identifier=camera.camera_identifier,
+                gateway_path=gateway_path_for(camera.camera_identifier),
+                host=str(camera.ip_address),
+                port=int(camera.rtsp_port or 8800),
+                device_id=device_id,
+                username=username,
+                password=password,
+                enabled=(
+                    camera.is_active
+                    and camera.stream_status != "disabled"
+                ),
+            )
+        )
+
+    return GatewayCameraRegistryResponse(
+        items=items,
+        total=len(items),
+        generated_at=_utcnow(),
+    )
 
 def _issue_stream_token(
     *,
