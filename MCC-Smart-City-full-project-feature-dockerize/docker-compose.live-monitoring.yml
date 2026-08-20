@@ -22,7 +22,6 @@ services:
       # credential_reference when they require different credentials.
       V380_DEFAULT_USERNAME: ${V380_DEFAULT_USERNAME:-admin}
       V380_DEFAULT_PASSWORD: ${V380_DEFAULT_PASSWORD:-}
-      V380_MCC_CAM_001_CREDENTIALS: ${V380_MCC_CAM_001_CREDENTIALS}
     depends_on:
       - mediamtx
     networks:

@@ -26,6 +26,17 @@ def get_by_serial(db: Session, serial_number: str) -> Camera | None:
     )
 
 
+def get_by_v380_device_id(
+    db: Session,
+    v380_device_id: int,
+) -> Camera | None:
+    return db.scalar(
+        select(Camera).where(
+            Camera.v380_device_id == v380_device_id
+        )
+    )
+
+
 def list_cameras(
     db: Session,
     *,
