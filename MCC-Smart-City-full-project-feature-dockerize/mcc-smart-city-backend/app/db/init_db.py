@@ -17,6 +17,7 @@ from app.modules.assignments.models import (
 from app.modules.assignments.service import (
     backfill_existing_incident_assignments,
 )
+from app.modules.cameras.models import Camera, CameraCredential
 from app.modules.departments.models import Department
 from app.modules.evidence.models import Evidence
 from app.modules.gis.models import (

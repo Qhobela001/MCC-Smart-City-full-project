@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.modules.cameras.models import Camera
+from app.modules.cameras import credential_vault
 from app.modules.cameras import repository as camera_repository
 from app.modules.live_streams.schemas import (
     GatewayStatusRead,
@@ -354,40 +355,23 @@ def get_live_camera(db: Session, camera_identifier: str) -> LiveCameraRead:
     return _camera_read(camera, path_state=states.get(path))
 
 
-def _credential_value(camera: Camera) -> tuple[str, str] | None:
-    reference = (camera.credential_reference or "").strip()
-    if not reference:
-        return None
-
-    if reference.lower().startswith("env:"):
-        reference = reference[4:].strip()
-
-    if not reference:
-        raise StreamNotConfiguredError(
-            "Camera credential reference is invalid."
+def _credential_value(
+    db: Session,
+    camera: Camera,
+) -> tuple[str, str] | None:
+    try:
+        return credential_vault.resolve_credentials(
+            db,
+            camera,
         )
-
-    secret_value = os.getenv(reference)
-    if not secret_value:
-        raise StreamNotConfiguredError(
-            "Camera credentials are not available on the server."
-        )
-
-    if ":" not in secret_value:
-        raise StreamNotConfiguredError(
-            "Camera credentials are invalid on the server."
-        )
-
-    username, password = secret_value.split(":", 1)
-    if not username:
-        raise StreamNotConfiguredError(
-            "Camera credentials are invalid on the server."
-        )
-
-    return username, password
+    except credential_vault.CredentialVaultError as exc:
+        raise StreamNotConfiguredError(str(exc)) from exc
 
 
-def _camera_source_url(camera: Camera) -> str:
+def _camera_source_url(
+    db: Session,
+    camera: Camera,
+) -> str:
     if not _is_stream_configured(camera):
         raise StreamNotConfiguredError(
             "Camera RTSP stream is not configured in Camera & Device Management."
@@ -406,7 +390,7 @@ def _camera_source_url(camera: Camera) -> str:
     port = camera.rtsp_port or 554
     authority = str(camera.ip_address)
 
-    credentials = _credential_value(camera)
+    credentials = _credential_value(db, camera)
     if credentials:
         username, password = credentials
         authority = (
@@ -416,7 +400,10 @@ def _camera_source_url(camera: Camera) -> str:
     return f"{protocol}://{authority}:{port}{path}"
 
 
-def sync_camera(camera: Camera) -> str:
+def sync_camera(
+    db: Session,
+    camera: Camera,
+) -> str:
     path = gateway_path_for(camera.camera_identifier)
 
     # V380 cameras are push sources. The persistent camera-gateway service
@@ -429,7 +416,7 @@ def sync_camera(camera: Camera) -> str:
             )
         return path
 
-    source_url = _camera_source_url(camera)
+    source_url = _camera_source_url(db, camera)
     encoded_path = quote(path, safe="")
 
     payload = {
@@ -483,7 +470,7 @@ def sync_all(db: Session) -> SyncAllResponse:
             continue
 
         try:
-            sync_camera(camera)
+            sync_camera(db, camera)
             synced.append(camera.camera_identifier)
         except LiveStreamError as exc:
             failed.append(
@@ -503,8 +490,11 @@ def sync_all(db: Session) -> SyncAllResponse:
 
 
 
-def _v380_credentials(camera: Camera) -> tuple[str, str]:
-    credentials = _credential_value(camera)
+def _v380_credentials(
+    db: Session,
+    camera: Camera,
+) -> tuple[str, str]:
+    credentials = _credential_value(db, camera)
     if credentials is not None:
         return credentials
 
@@ -536,7 +526,7 @@ def list_gateway_camera_configs(
         if device_id is None:
             continue
 
-        username, password = _v380_credentials(camera)
+        username, password = _v380_credentials(db, camera)
         items.append(
             GatewayCameraConfigRead(
                 camera_identifier=camera.camera_identifier,
@@ -645,7 +635,7 @@ def create_session(
     if camera.stream_status == "disabled":
         raise StreamNotConfiguredError("Camera live stream is disabled.")
 
-    path = sync_camera(camera)
+    path = sync_camera(db, camera)
     token, expires_at = _issue_stream_token(
         actor=actor,
         camera=camera,

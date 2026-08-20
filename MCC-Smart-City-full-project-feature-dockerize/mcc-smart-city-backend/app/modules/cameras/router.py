@@ -5,6 +5,7 @@ from app.core.deps import get_current_user, get_db
 from app.modules.cameras import repository, service
 from app.modules.cameras.schemas import (
     CameraCreate,
+    CameraCredentialMigrationResponse,
     CameraHeartbeatRequest,
     CameraListResponse,
     CameraOptionsResponse,
@@ -119,6 +120,23 @@ def create_camera(
         actor=actor,
     )
     return service.to_read(camera, actor=actor)
+
+
+@router.post(
+    "/{camera_id}/credentials/migrate",
+    response_model=CameraCredentialMigrationResponse,
+)
+def migrate_camera_credentials(
+    camera_id: int,
+    db: Session = Depends(get_db),
+    actor: User = Depends(get_current_user),
+) -> CameraCredentialMigrationResponse:
+    camera = service.get_camera_or_404(db, camera_id)
+    return service.migrate_camera_credentials(
+        db,
+        camera,
+        actor=actor,
+    )
 
 
 @router.get(

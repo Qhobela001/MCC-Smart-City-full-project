@@ -30,6 +30,11 @@ class StreamStatus(StrEnum):
     disabled = "disabled"
 
 
+class StreamProtocol(StrEnum):
+    rtsp = "rtsp"
+    v380 = "v380"
+
+
 def _validate_ip(value: str | None) -> str | None:
     if value is None:
         return None
@@ -92,8 +97,14 @@ class CameraCreate(BaseModel):
     v380_port: int | None = None
     v380_device_id: int | None = Field(default=None, ge=1)
 
-    stream_protocol: str = Field(default="rtsp", max_length=20)
+    stream_protocol: StreamProtocol = StreamProtocol.rtsp
+
+    # credential_reference remains for temporary legacy/env compatibility.
+    # New Camera Management writes username/password to the encrypted vault
+    # instead; these write-only fields are never part of CameraRead.
     credential_reference: str | None = Field(default=None, max_length=250)
+    credential_username: str | None = Field(default=None, max_length=150)
+    credential_password: str | None = Field(default=None, max_length=500)
 
     ai_enabled: bool = True
     ai_profile: dict[str, Any] = Field(default_factory=dict)
@@ -160,8 +171,10 @@ class CameraUpdate(BaseModel):
     v380_port: int | None = None
     v380_device_id: int | None = Field(default=None, ge=1)
 
-    stream_protocol: str | None = Field(default=None, max_length=20)
+    stream_protocol: StreamProtocol | None = None
     credential_reference: str | None = Field(default=None, max_length=250)
+    credential_username: str | None = Field(default=None, max_length=150)
+    credential_password: str | None = Field(default=None, max_length=500)
 
     ai_enabled: bool | None = None
     ai_profile: dict[str, Any] | None = None
@@ -206,6 +219,14 @@ class CameraHeartbeatRequest(BaseModel):
     stream_status: StreamStatus = StreamStatus.unknown
 
 
+class CameraCredentialMigrationResponse(BaseModel):
+    camera_id: int
+    camera_identifier: str
+    credential_reference: str
+    credential_source: str
+    migrated: bool
+
+
 class CameraRead(BaseModel):
     id: int
     camera_identifier: str
@@ -236,8 +257,10 @@ class CameraRead(BaseModel):
     v380_port: int | None
     v380_device_id: int | None
 
-    stream_protocol: str
+    stream_protocol: StreamProtocol
     credential_reference: str | None
+    credential_configured: bool
+    credential_source: str | None
 
     ai_enabled: bool
     ai_profile: dict[str, Any]

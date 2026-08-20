@@ -9,10 +9,11 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.modules.cameras import repository
+from app.modules.cameras import credential_vault, repository
 from app.modules.cameras.models import Camera
 from app.modules.cameras.schemas import (
     CameraCreate,
+    CameraCredentialMigrationResponse,
     CameraHeartbeatRequest,
     CameraListResponse,
     CameraOptionsResponse,
@@ -22,6 +23,7 @@ from app.modules.cameras.schemas import (
     CameraUpdate,
     DeviceOption,
     LocationOption,
+    StreamProtocol,
 )
 from app.modules.devices import repository as device_repository
 from app.modules.devices.models import InfrastructureDevice
@@ -62,6 +64,161 @@ def ensure_manager(actor: User) -> None:
         status_code=status.HTTP_403_FORBIDDEN,
         detail="Only the Super Administrator can modify camera infrastructure.",
     )
+
+
+def _normalize_credential_reference(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = value.strip()
+    return normalized or None
+
+
+def _credential_pair(
+    username: str | None,
+    password: str | None,
+    *,
+    required: bool,
+) -> tuple[str, str] | None:
+    normalized_username = (username or "").strip()
+    normalized_password = password or ""
+
+    if not normalized_username and not normalized_password:
+        if required:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=(
+                    "Camera username and password are required for this "
+                    "stream configuration."
+                ),
+            )
+        return None
+
+    if not normalized_username or not normalized_password:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                "Camera username and password must be supplied together."
+            ),
+        )
+
+    return normalized_username, normalized_password
+
+
+def _vault_http_exception(
+    exc: credential_vault.CredentialVaultError,
+) -> HTTPException:
+    if isinstance(
+        exc,
+        credential_vault.CredentialVaultConfigurationError,
+    ):
+        return HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        )
+    return HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail=str(exc),
+    )
+
+
+def _stream_protocol_value(value: str | StreamProtocol) -> str:
+    if isinstance(value, StreamProtocol):
+        return value.value
+    return str(value).strip().lower()
+
+
+def _effective_value(
+    values: dict,
+    camera: Camera | None,
+    field_name: str,
+    default=None,
+):
+    if field_name in values:
+        return values[field_name]
+    if camera is not None:
+        return getattr(camera, field_name)
+    return default
+
+
+def _normalize_stream_configuration(
+    values: dict,
+    *,
+    camera: Camera | None = None,
+) -> dict:
+    protocol = _stream_protocol_value(
+        _effective_value(
+            values,
+            camera,
+            "stream_protocol",
+            StreamProtocol.rtsp,
+        )
+    )
+
+    if protocol not in {
+        StreamProtocol.rtsp.value,
+        StreamProtocol.v380.value,
+    }:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Stream protocol must be either rtsp or v380.",
+        )
+
+    values["stream_protocol"] = protocol
+
+    if "credential_reference" in values:
+        values["credential_reference"] = _normalize_credential_reference(
+            values["credential_reference"]
+        )
+
+    if protocol == StreamProtocol.v380.value:
+        ip_address = _effective_value(values, camera, "ip_address")
+        v380_port = _effective_value(
+            values,
+            camera,
+            "v380_port",
+            8800,
+        )
+        v380_device_id = _effective_value(
+            values,
+            camera,
+            "v380_device_id",
+        )
+        if not ip_address:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="V380 cameras require an IP address.",
+            )
+        if v380_port is None:
+            v380_port = 8800
+        if v380_device_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="V380 cameras require a V380 device ID.",
+            )
+        values["v380_port"] = int(v380_port)
+        values["v380_device_id"] = int(v380_device_id)
+
+        # Keep RTSP-only configuration out of V380 rows.
+        values["rtsp_port"] = None
+        values["rtsp_path"] = None
+        values["onvif_port"] = None
+    else:
+        rtsp_port = _effective_value(
+            values,
+            camera,
+            "rtsp_port",
+            554,
+        )
+        if rtsp_port is None:
+            rtsp_port = 554
+
+        values["rtsp_port"] = int(rtsp_port)
+
+        # Keep proprietary V380 configuration out of RTSP rows.
+        values["v380_port"] = None
+        values["v380_device_id"] = None
+
+    return values
 
 
 def _active_location(
@@ -168,6 +325,7 @@ def _duplicate_conflict(
     camera_identifier: str | None = None,
     mac_address: str | None = None,
     serial_number: str | None = None,
+    v380_device_id: int | None = None,
     exclude_id: int | None = None,
 ) -> None:
     candidates: list[tuple[Camera | None, str]] = []
@@ -180,6 +338,13 @@ def _duplicate_conflict(
         candidates.append((repository.get_by_mac(db, mac_address), "MAC address"))
     if serial_number:
         candidates.append((repository.get_by_serial(db, serial_number), "serial number"))
+    if v380_device_id:
+        candidates.append(
+            (
+                repository.get_by_v380_device_id(db, v380_device_id),
+                "V380 device ID",
+            )
+        )
 
     for existing, label in candidates:
         if existing is None:
@@ -221,24 +386,53 @@ def create_camera(
         camera_location_id=payload.gis_location_id,
     )
 
+    values = payload.model_dump()
+    credential_username = values.pop("credential_username", None)
+    credential_password = values.pop("credential_password", None)
+
+    values["camera_identifier"] = identifier
+    values["status"] = payload.status.value
+    values["stream_status"] = payload.stream_status.value
+    values["created_by_id"] = actor.id
+    values = _normalize_stream_configuration(values)
+
+    effective_reference = _normalize_credential_reference(
+        values.get("credential_reference")
+    )
+    credential_pair = _credential_pair(
+        credential_username,
+        credential_password,
+        required=(
+            values["stream_protocol"] == StreamProtocol.v380.value
+            and not effective_reference
+        ),
+    )
+
     _duplicate_conflict(
         db,
         camera_identifier=identifier,
         mac_address=payload.mac_address,
         serial_number=payload.serial_number,
+        v380_device_id=values.get("v380_device_id"),
     )
-
-    values = payload.model_dump()
-    values["camera_identifier"] = identifier
-    values["status"] = payload.status.value
-    values["stream_status"] = payload.stream_status.value
-    values["created_by_id"] = actor.id
 
     try:
         camera = repository.create_camera(db, values)
+        if credential_pair is not None:
+            username, password = credential_pair
+            credential_vault.upsert_credentials(
+                db,
+                camera,
+                username=username,
+                password=password,
+                actor_id=actor.id,
+            )
         db.commit()
         db.refresh(camera)
         return camera
+    except credential_vault.CredentialVaultError as exc:
+        db.rollback()
+        raise _vault_http_exception(exc) from exc
     except IntegrityError as exc:
         db.rollback()
         raise HTTPException(
@@ -281,6 +475,8 @@ def update_camera(
 ) -> Camera:
     ensure_manager(actor)
     values = payload.model_dump(exclude_unset=True)
+    credential_username = values.pop("credential_username", None)
+    credential_password = values.pop("credential_password", None)
 
     if values.get("camera_identifier") is not None:
         values["camera_identifier"] = normalize_identifier(
@@ -290,6 +486,39 @@ def update_camera(
         values["status"] = values["status"].value
     if values.get("stream_status") is not None:
         values["stream_status"] = values["stream_status"].value
+    if values.get("stream_protocol") is not None:
+        values["stream_protocol"] = _stream_protocol_value(
+            values["stream_protocol"]
+        )
+
+    values = _normalize_stream_configuration(
+        values,
+        camera=camera,
+    )
+
+    credential_pair = _credential_pair(
+        credential_username,
+        credential_password,
+        required=False,
+    )
+    effective_reference = _normalize_credential_reference(
+        values.get(
+            "credential_reference",
+            camera.credential_reference,
+        )
+    )
+    if (
+        values["stream_protocol"] == StreamProtocol.v380.value
+        and credential_pair is None
+        and not effective_reference
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                "V380 cameras require camera credentials. Supply a username "
+                "and password or keep an existing server-side credential."
+            ),
+        )
 
     if "gis_location_id" in values:
         _active_location(db, values["gis_location_id"])
@@ -336,6 +565,10 @@ def update_camera(
         camera_identifier=values.get("camera_identifier", camera.camera_identifier),
         mac_address=values.get("mac_address", camera.mac_address),
         serial_number=values.get("serial_number", camera.serial_number),
+        v380_device_id=values.get(
+            "v380_device_id",
+            camera.v380_device_id,
+        ),
         exclude_id=camera.id,
     )
 
@@ -345,15 +578,59 @@ def update_camera(
 
     try:
         repository.update_camera(db, camera, values)
+        if credential_pair is not None:
+            username, password = credential_pair
+            credential_vault.upsert_credentials(
+                db,
+                camera,
+                username=username,
+                password=password,
+                actor_id=actor.id,
+            )
         db.commit()
         db.refresh(camera)
         return camera
+    except credential_vault.CredentialVaultError as exc:
+        db.rollback()
+        raise _vault_http_exception(exc) from exc
     except IntegrityError as exc:
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Camera could not be updated because a unique value already exists.",
         ) from exc
+
+
+def migrate_camera_credentials(
+    db: Session,
+    camera: Camera,
+    *,
+    actor: User,
+) -> CameraCredentialMigrationResponse:
+    ensure_manager(actor)
+
+    try:
+        migrated = credential_vault.migrate_environment_credentials(
+            db,
+            camera,
+            actor_id=actor.id,
+        )
+        db.commit()
+        db.refresh(camera)
+    except credential_vault.CredentialVaultError as exc:
+        db.rollback()
+        raise _vault_http_exception(exc) from exc
+
+    return CameraCredentialMigrationResponse(
+        camera_id=camera.id,
+        camera_identifier=camera.camera_identifier,
+        credential_reference=camera.credential_reference
+        or credential_vault.vault_reference(camera.id),
+        credential_source=credential_vault.credential_source(
+            camera.credential_reference
+        ),
+        migrated=migrated,
+    )
 
 
 def retire_camera(
@@ -468,9 +745,23 @@ def to_read(
         rtsp_port=camera.rtsp_port if can_manage else None,
         rtsp_path=camera.rtsp_path if can_manage else None,
         onvif_port=camera.onvif_port if can_manage else None,
+        v380_port=camera.v380_port if can_manage else None,
+        v380_device_id=(
+            camera.v380_device_id
+            if can_manage
+            else None
+        ),
         stream_protocol=camera.stream_protocol,
         credential_reference=(
             camera.credential_reference
+            if can_manage
+            else None
+        ),
+        credential_configured=bool(camera.credential_reference),
+        credential_source=(
+            credential_vault.credential_source(
+                camera.credential_reference
+            )
             if can_manage
             else None
         ),

@@ -36,6 +36,10 @@ settings = SimpleNamespace(
         "SECRET_KEY",
         "change-this-secret-in-production",
     ),
+    CAMERA_CREDENTIAL_MASTER_KEY=os.getenv(
+        "CAMERA_CREDENTIAL_MASTER_KEY",
+        "",
+    ).strip(),
     JWT_ALGORITHM=os.getenv("JWT_ALGORITHM", "HS256"),
     ACCESS_TOKEN_EXPIRE_MINUTES=int(
         os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60")

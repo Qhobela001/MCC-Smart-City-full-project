@@ -1,4 +1,4 @@
-﻿services:
+services:
   backend:
     environment:
 
@@ -11,6 +11,13 @@
       LIVE_STREAM_PUBLISH_USERNAME: ${LIVE_STREAM_PUBLISH_USERNAME}
       LIVE_STREAM_PUBLISH_PASSWORD: ${LIVE_STREAM_PUBLISH_PASSWORD}
 
+      # Stage 4: one stable server-side key encrypts all camera passwords at rest.
+      # Keep this value stable across restarts/backups; never expose it to frontend.
+      CAMERA_CREDENTIAL_MASTER_KEY: ${CAMERA_CREDENTIAL_MASTER_KEY:-}
+
+      # Legacy V380 fallback retained only for migration. Once a camera shows
+      # credential_source=vault and the gateway is verified, its per-camera env
+      # variable can be removed in the hardening stage.
       # Default V380 LAN credentials. Individual cameras can continue using
       # credential_reference when they require different credentials.
       V380_DEFAULT_USERNAME: ${V380_DEFAULT_USERNAME:-admin}

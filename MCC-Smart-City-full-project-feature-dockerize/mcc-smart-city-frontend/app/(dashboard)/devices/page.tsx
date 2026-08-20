@@ -67,6 +67,8 @@ type StreamStatus =
   | "offline"
   | "disabled"
 
+type StreamProtocol = "rtsp" | "v380"
+
 type LocationSummary = {
   id: number
   name: string
@@ -133,8 +135,12 @@ type Camera = {
   rtsp_port: number | null
   rtsp_path: string | null
   onvif_port: number | null
-  stream_protocol: string
+  v380_port: number | null
+  v380_device_id: number | null
+  stream_protocol: StreamProtocol
   credential_reference: string | null
+  credential_configured: boolean
+  credential_source: string | null
   ai_enabled: boolean
   ai_profile: Record<string, unknown>
   status: DeviceStatus
@@ -348,6 +354,8 @@ export default function DevicesPage() {
         camera.ip_address,
         camera.manufacturer,
         camera.model,
+        camera.stream_protocol,
+        camera.v380_device_id,
       ]
         .filter(Boolean)
         .some((value) => String(value).toLowerCase().includes(term)),
@@ -728,6 +736,8 @@ function CameraRegistry({
                     <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                       <span>{camera.location?.name ?? "No GIS location"}</span>
                       <span>•</span>
+                      <span>{camera.stream_protocol.toUpperCase()}</span>
+                      <span>•</span>
                       <span>{pretty(camera.stream_status)}</span>
                       {camera.ai_enabled && (
                         <>
@@ -775,14 +785,12 @@ function CameraRegistry({
                   }
                 />
                 <Info
-                  label="RTSP"
-                  value={
-                    selected.rtsp_path
-                      ? `${selected.stream_protocol} :${
-                          selected.rtsp_port ?? "—"
-                        }${selected.rtsp_path}`
-                      : "Not configured"
-                  }
+                  label="Stream configuration"
+                  value={cameraStreamSummary(selected)}
+                />
+                <Info
+                  label="Credentials"
+                  value={cameraCredentialSummary(selected)}
                 />
                 <Info
                   label="Jetson"
@@ -1028,21 +1036,72 @@ function CameraModal({
     manufacturer: camera?.manufacturer ?? "",
     model: camera?.model ?? "",
     serial_number: camera?.serial_number ?? "",
+    stream_protocol:
+      camera?.stream_protocol === "v380" ? "v380" : ("rtsp" as StreamProtocol),
+    credential_username:
+      camera?.stream_protocol === "v380" ? "admin" : "",
+    credential_password: "",
     rtsp_port: camera?.rtsp_port ? String(camera.rtsp_port) : "554",
     rtsp_path: camera?.rtsp_path ?? "",
     onvif_port: camera?.onvif_port ? String(camera.onvif_port) : "",
+    v380_port: camera?.v380_port ? String(camera.v380_port) : "8800",
+    v380_device_id: camera?.v380_device_id
+      ? String(camera.v380_device_id)
+      : "",
     ai_enabled: camera?.ai_enabled ?? true,
     status: camera?.status ?? ("configured" as DeviceStatus),
     stream_status:
       camera?.stream_status ?? ("unconfigured" as StreamStatus),
   })
   const [saving, setSaving] = useState(false)
+  const [migrating, setMigrating] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   async function submit(event: FormEvent) {
     event.preventDefault()
     setSaving(true)
     setError(null)
+
+    const isV380 = form.stream_protocol === "v380"
+
+    if (isV380 && !form.ip_address.trim()) {
+      setError("V380 cameras require an IP address.")
+      setSaving(false)
+      return
+    }
+
+    if (isV380 && !positiveInteger(form.v380_device_id)) {
+      setError("V380 device ID must be a positive integer.")
+      setSaving(false)
+      return
+    }
+
+    if (isV380 && !validPort(form.v380_port)) {
+      setError("V380 port must be between 1 and 65535.")
+      setSaving(false)
+      return
+    }
+
+    const needsNewCredentials =
+      isV380 && (!camera || !camera.credential_configured)
+
+    if (
+      needsNewCredentials &&
+      (!form.credential_username.trim() || !form.credential_password)
+    ) {
+      setError("V380 cameras require a camera username and password.")
+      setSaving(false)
+      return
+    }
+
+    if (
+      form.credential_password &&
+      !form.credential_username.trim()
+    ) {
+      setError("Camera username is required when changing the password.")
+      setSaving(false)
+      return
+    }
 
     const payload = {
       camera_identifier: form.camera_identifier,
@@ -1056,9 +1115,16 @@ function CameraModal({
       manufacturer: nullable(form.manufacturer),
       model: nullable(form.model),
       serial_number: nullable(form.serial_number),
-      rtsp_port: numberOrNull(form.rtsp_port),
-      rtsp_path: nullable(form.rtsp_path),
-      onvif_port: numberOrNull(form.onvif_port),
+      stream_protocol: form.stream_protocol,
+      credential_username: form.credential_password
+        ? form.credential_username.trim()
+        : undefined,
+      credential_password: form.credential_password || undefined,
+      rtsp_port: isV380 ? null : numberOrNull(form.rtsp_port),
+      rtsp_path: isV380 ? null : nullable(form.rtsp_path),
+      onvif_port: isV380 ? null : numberOrNull(form.onvif_port),
+      v380_port: isV380 ? numberOrNull(form.v380_port) : null,
+      v380_device_id: isV380 ? numberOrNull(form.v380_device_id) : null,
       ai_enabled: form.ai_enabled,
       status: form.status,
       stream_status: form.stream_status,
@@ -1078,6 +1144,24 @@ function CameraModal({
       setError(messageFromError(err))
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function migrateLegacyCredential() {
+    if (!camera) return
+
+    setMigrating(true)
+    setError(null)
+    try {
+      await apiFetch(
+        `/cameras/${camera.id}/credentials/migrate`,
+        { method: "POST" },
+      )
+      await onSaved()
+    } catch (err) {
+      setError(messageFromError(err))
+    } finally {
+      setMigrating(false)
     }
   }
 
@@ -1138,7 +1222,73 @@ function CameraModal({
                 setForm({ ...form, ip_address: e.target.value })
               }
               className={inputClass}
-              placeholder="10.20.1.21"
+              placeholder="192.168.30.12"
+            />
+          </Field>
+
+          <Field label="Stream protocol" required>
+            <select
+              value={form.stream_protocol}
+              onChange={(e: ChangeEvent<HTMLSelectElement>) => {
+                const protocol = e.target.value as StreamProtocol
+                setForm({
+                  ...form,
+                  stream_protocol: protocol,
+                  rtsp_port:
+                    protocol === "rtsp" && !form.rtsp_port
+                      ? "554"
+                      : form.rtsp_port,
+                  v380_port:
+                    protocol === "v380" && !form.v380_port
+                      ? "8800"
+                      : form.v380_port,
+                })
+              }}
+              className={inputClass}
+            >
+              <option value="rtsp">RTSP / ONVIF</option>
+              <option value="v380">V380 proprietary LAN</option>
+            </select>
+          </Field>
+
+          <Field
+            label="Camera username"
+            required={
+              form.stream_protocol === "v380" &&
+              (!camera || !camera.credential_configured)
+            }
+          >
+            <input
+              autoComplete="off"
+              value={form.credential_username}
+              onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                setForm({ ...form, credential_username: e.target.value })
+              }
+              className={inputClass}
+              placeholder={form.stream_protocol === "v380" ? "admin" : "camera user"}
+            />
+          </Field>
+
+          <Field
+            label={camera?.credential_configured ? "New camera password" : "Camera password"}
+            required={
+              form.stream_protocol === "v380" &&
+              (!camera || !camera.credential_configured)
+            }
+          >
+            <input
+              type="password"
+              autoComplete="new-password"
+              value={form.credential_password}
+              onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                setForm({ ...form, credential_password: e.target.value })
+              }
+              className={inputClass}
+              placeholder={
+                camera?.credential_configured
+                  ? "Leave blank to keep current password"
+                  : "Enter camera password"
+              }
             />
           </Field>
 
@@ -1225,42 +1375,78 @@ function CameraModal({
             />
           </Field>
 
-          <Field label="RTSP port">
-            <input
-              type="number"
-              min={1}
-              max={65535}
-              value={form.rtsp_port}
-              onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                setForm({ ...form, rtsp_port: e.target.value })
-              }
-              className={inputClass}
-            />
-          </Field>
+          {form.stream_protocol === "v380" ? (
+            <>
+              <Field label="V380 port" required>
+                <input
+                  required
+                  type="number"
+                  min={1}
+                  max={65535}
+                  value={form.v380_port}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                    setForm({ ...form, v380_port: e.target.value })
+                  }
+                  className={inputClass}
+                  placeholder="8800"
+                />
+              </Field>
 
-          <Field label="RTSP path">
-            <input
-              value={form.rtsp_path}
-              onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                setForm({ ...form, rtsp_path: e.target.value })
-              }
-              className={inputClass}
-              placeholder="/stream1"
-            />
-          </Field>
+              <Field label="V380 device ID" required>
+                <input
+                  required
+                  type="number"
+                  min={1}
+                  step={1}
+                  value={form.v380_device_id}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                    setForm({ ...form, v380_device_id: e.target.value })
+                  }
+                  className={inputClass}
+                  placeholder="106519033"
+                />
+              </Field>
+            </>
+          ) : (
+            <>
+              <Field label="RTSP port">
+                <input
+                  type="number"
+                  min={1}
+                  max={65535}
+                  value={form.rtsp_port}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                    setForm({ ...form, rtsp_port: e.target.value })
+                  }
+                  className={inputClass}
+                />
+              </Field>
 
-          <Field label="ONVIF port">
-            <input
-              type="number"
-              min={1}
-              max={65535}
-              value={form.onvif_port}
-              onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                setForm({ ...form, onvif_port: e.target.value })
-              }
-              className={inputClass}
-            />
-          </Field>
+              <Field label="RTSP path">
+                <input
+                  value={form.rtsp_path}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                    setForm({ ...form, rtsp_path: e.target.value })
+                  }
+                  className={inputClass}
+                  placeholder="/stream1"
+                />
+              </Field>
+
+              <Field label="ONVIF port">
+                <input
+                  type="number"
+                  min={1}
+                  max={65535}
+                  value={form.onvif_port}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                    setForm({ ...form, onvif_port: e.target.value })
+                  }
+                  className={inputClass}
+                />
+              </Field>
+            </>
+          )}
 
           <Field label="Camera status">
             <select
@@ -1322,10 +1508,36 @@ function CameraModal({
           Enable AI processing for this camera
         </label>
 
-        <div className="rounded-md border border-border bg-muted/20 p-3 text-xs text-muted-foreground">
-          Do not paste camera usernames or passwords into the RTSP path.
-          Credentials will be handled separately during secure hardware
-          integration.
+        <div className="space-y-3 rounded-md border border-border bg-muted/20 p-3 text-xs text-muted-foreground">
+          <div>
+            Camera passwords are sent only when you register or rotate
+            credentials. The backend encrypts them before database storage and
+            never returns a stored password to this page.
+            {camera?.credential_configured && (
+              <span className="ml-1">
+                Leave the password field blank to keep the current credential.
+              </span>
+            )}
+          </div>
+
+          {camera?.credential_source === "environment" && (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 p-2">
+              <span>
+                This camera still uses the legacy per-camera environment
+                credential. Migrate it to the encrypted vault before removing
+                the old Docker environment variable.
+              </span>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={migrating || saving}
+                onClick={() => void migrateLegacyCredential()}
+              >
+                {migrating ? "Migrating…" : "Migrate to encrypted vault"}
+              </Button>
+            </div>
+          )}
         </div>
 
         <div className="flex justify-end gap-2">
@@ -1854,6 +2066,42 @@ function pretty(value: string) {
   return value
     .replaceAll("_", " ")
     .replace(/\b\w/g, (letter) => letter.toUpperCase())
+}
+
+function cameraCredentialSummary(camera: Camera) {
+  if (!camera.credential_configured) return "Not configured"
+  if (camera.credential_source === "vault") return "Encrypted vault"
+  if (camera.credential_source === "environment") {
+    return "Legacy server environment"
+  }
+  return "Server-side credential configured"
+}
+
+function cameraStreamSummary(camera: Camera) {
+  if (camera.stream_protocol === "v380") {
+    if (!camera.v380_device_id) return "V380 · Not configured"
+    return `V380 · device ${camera.v380_device_id} · :${
+      camera.v380_port ?? 8800
+    }`
+  }
+
+  if (!camera.rtsp_path) {
+    return `RTSP · :${camera.rtsp_port ?? 554} · Path not configured`
+  }
+
+  return `RTSP · :${camera.rtsp_port ?? 554}${camera.rtsp_path}`
+}
+
+function validPort(value: string) {
+  if (!value) return false
+  const parsed = Number(value)
+  return Number.isInteger(parsed) && parsed >= 1 && parsed <= 65535
+}
+
+function positiveInteger(value: string) {
+  if (!value) return false
+  const parsed = Number(value)
+  return Number.isInteger(parsed) && parsed > 0
 }
 
 function formatDate(value: string | null) {

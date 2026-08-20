@@ -152,3 +152,54 @@ class Camera(Base):
             "is_active",
         ),
     )
+
+
+
+class CameraCredential(Base):
+    """
+    Encrypted server-side camera authentication material.
+
+    Passwords are encrypted before this row is written. The frontend never
+    receives encrypted_password and never receives a decrypted password.
+    """
+
+    __tablename__ = "camera_credentials"
+
+    id = Column(Integer, primary_key=True, index=True)
+    camera_id = Column(
+        Integer,
+        ForeignKey("cameras.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+    username = Column(String(150), nullable=False)
+    encrypted_password = Column(Text, nullable=False)
+    encryption_scheme = Column(
+        String(50),
+        nullable=False,
+        default="fernet-sha256-v1",
+    )
+    created_by_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    updated_by_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    created_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
