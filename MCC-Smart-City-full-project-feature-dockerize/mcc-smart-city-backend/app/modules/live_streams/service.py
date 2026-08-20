@@ -128,19 +128,47 @@ def _stream_path_value(camera: Camera) -> str:
     return (camera.rtsp_path or "").strip().strip("/")
 
 
+V380_PROTOCOLS = {"v380", "v380-legacy", "macrovideo"}
+
+
 def _is_v380_camera(camera: Camera) -> bool:
     protocol = _stream_protocol(camera)
-    if protocol in {"v380", "v380-legacy", "macrovideo"}:
+    if protocol in V380_PROTOCOLS:
         return True
 
-    # Compatibility with the existing Camera & Device Management form:
-    # until the UI exposes a dedicated V380 option, port 8800 + a numeric
-    # stream path is treated as a V380 device ID.
+    # Temporary backwards compatibility for camera rows created before
+    # dedicated V380 fields existed. Once all deployed rows are migrated and
+    # the Camera Management UI writes stream_protocol=v380 explicitly, this
+    # fallback can be removed.
     path = _stream_path_value(camera)
     return (camera.rtsp_port or 0) == 8800 and path.isdigit()
 
 
+def _v380_port(camera: Camera) -> int | None:
+    dedicated = getattr(camera, "v380_port", None)
+    if dedicated is not None:
+        value = int(dedicated)
+        if 1 <= value <= 65535:
+            return value
+        return None
+
+    # Temporary compatibility with the pre-Stage-1 schema.
+    fallback = camera.rtsp_port
+    if fallback is None:
+        return 8800 if _stream_protocol(camera) in V380_PROTOCOLS else None
+
+    value = int(fallback)
+    return value if 1 <= value <= 65535 else None
+
+
 def _v380_device_id(camera: Camera) -> int | None:
+    dedicated = getattr(camera, "v380_device_id", None)
+    if dedicated is not None:
+        value = int(dedicated)
+        return value if value > 0 else None
+
+    # Temporary compatibility with rows where rtsp_path carried the V380
+    # numeric device ID.
     path = _stream_path_value(camera)
     if not path.isdigit():
         return None
@@ -157,7 +185,10 @@ def _is_stream_configured(camera: Camera) -> bool:
         return False
 
     if _is_v380_camera(camera):
-        return _v380_device_id(camera) is not None
+        return (
+            _v380_port(camera) is not None
+            and _v380_device_id(camera) is not None
+        )
 
     protocol = _stream_protocol(camera)
     return bool(
@@ -394,7 +425,7 @@ def sync_camera(camera: Camera) -> str:
     if _is_v380_camera(camera):
         if not _is_stream_configured(camera):
             raise StreamNotConfiguredError(
-                "V380 camera requires an IP address, port 8800 and numeric device ID."
+                "V380 camera requires an IP address, V380 port and numeric device ID."
             )
         return path
 
@@ -511,7 +542,7 @@ def list_gateway_camera_configs(
                 camera_identifier=camera.camera_identifier,
                 gateway_path=gateway_path_for(camera.camera_identifier),
                 host=str(camera.ip_address),
-                port=int(camera.rtsp_port or 8800),
+                port=int(_v380_port(camera) or 8800),
                 device_id=device_id,
                 username=username,
                 password=password,

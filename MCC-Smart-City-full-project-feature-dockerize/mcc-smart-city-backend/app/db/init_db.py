@@ -3,6 +3,7 @@ from sqlalchemy import select
 from app.core.config import settings
 from app.core.security import get_password_hash
 from app.db.base import Base
+from app.db.camera_stream_schema import ensure_camera_stream_schema
 from app.db.gis_link_schema import ensure_gis_event_links
 from app.db.session import SessionLocal, engine
 
@@ -255,6 +256,7 @@ def init_db() -> None:
 
     # create_all does not alter already-existing tables.
     # Upgrade the existing Docker volume safely and idempotently.
+    ensure_camera_stream_schema(engine)
     ensure_gis_event_links(engine)
 
     with SessionLocal() as db:

@@ -1,4 +1,5 @@
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     Column,
     DateTime,
@@ -67,6 +68,11 @@ class Camera(Base):
     rtsp_port = Column(Integer, nullable=True, default=554)
     rtsp_path = Column(String(500), nullable=True)
     onvif_port = Column(Integer, nullable=True)
+
+    # V380 / Macrovideo proprietary LAN streaming fields.
+    # Keep these separate from RTSP so rtsp_path remains an actual RTSP path.
+    v380_port = Column(Integer, nullable=True)
+    v380_device_id = Column(BigInteger, nullable=True, index=True)
 
     stream_protocol = Column(String(20), nullable=False, default="rtsp")
 

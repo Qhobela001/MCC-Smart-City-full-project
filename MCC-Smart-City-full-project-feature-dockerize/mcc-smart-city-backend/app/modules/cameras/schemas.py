@@ -88,6 +88,10 @@ class CameraCreate(BaseModel):
     rtsp_port: int | None = 554
     rtsp_path: str | None = Field(default=None, max_length=500)
     onvif_port: int | None = None
+
+    v380_port: int | None = None
+    v380_device_id: int | None = Field(default=None, ge=1)
+
     stream_protocol: str = Field(default="rtsp", max_length=20)
     credential_reference: str | None = Field(default=None, max_length=250)
 
@@ -109,7 +113,7 @@ class CameraCreate(BaseModel):
     def normalize_mac_address(cls, value: str | None) -> str | None:
         return _normalize_mac(value)
 
-    @field_validator("http_port", "rtsp_port", "onvif_port")
+    @field_validator("http_port", "rtsp_port", "onvif_port", "v380_port")
     @classmethod
     def validate_ports(cls, value: int | None) -> int | None:
         return _validate_port(value)
@@ -152,6 +156,10 @@ class CameraUpdate(BaseModel):
     rtsp_port: int | None = None
     rtsp_path: str | None = Field(default=None, max_length=500)
     onvif_port: int | None = None
+
+    v380_port: int | None = None
+    v380_device_id: int | None = Field(default=None, ge=1)
+
     stream_protocol: str | None = Field(default=None, max_length=20)
     credential_reference: str | None = Field(default=None, max_length=250)
 
@@ -174,7 +182,7 @@ class CameraUpdate(BaseModel):
     def normalize_mac_address(cls, value: str | None) -> str | None:
         return _normalize_mac(value)
 
-    @field_validator("http_port", "rtsp_port", "onvif_port")
+    @field_validator("http_port", "rtsp_port", "onvif_port", "v380_port")
     @classmethod
     def validate_ports(cls, value: int | None) -> int | None:
         return _validate_port(value)
@@ -224,6 +232,10 @@ class CameraRead(BaseModel):
     rtsp_port: int | None
     rtsp_path: str | None
     onvif_port: int | None
+
+    v380_port: int | None
+    v380_device_id: int | None
+
     stream_protocol: str
     credential_reference: str | None
 
