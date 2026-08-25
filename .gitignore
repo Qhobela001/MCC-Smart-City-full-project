@@ -1,0 +1,40 @@
+# Environment / secrets
+.env
+**/.env
+.env.local
+**/.env.local
+
+# IDE
+.idea/
+**/.idea/
+.vscode/
+**/.vscode/
+
+# Python
+**/__pycache__/
+**/*.py[cod]
+**/.venv/
+**/venv/
+
+# Node / Next.js
+**/node_modules/
+**/.next/
+
+# Logs
+*.log
+
+# Runtime uploads
+**/uploads/*
+
+# Local model/runtime artifacts
+**/v380_frames/
+**/v380_decoded/
+
+# MCC temporary integration artifacts
+**/*-current-state.txt
+**/README-STAGE*.txt
+**/*before-vault-only.yml
+
+# OS
+.DS_Store
+Thumbs.db
