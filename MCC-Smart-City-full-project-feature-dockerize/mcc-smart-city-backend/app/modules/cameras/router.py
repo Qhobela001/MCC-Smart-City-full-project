@@ -4,6 +4,8 @@ from sqlalchemy.orm import Session
 from app.core.deps import get_current_user, get_db
 from app.modules.cameras import repository, service
 from app.modules.cameras.schemas import (
+    CameraConnectionTestRequest,
+    CameraConnectionTestResponse,
     CameraCreate,
     CameraCredentialMigrationResponse,
     CameraHeartbeatRequest,
@@ -120,6 +122,17 @@ def create_camera(
         actor=actor,
     )
     return service.to_read(camera, actor=actor)
+
+
+@router.post(
+    "/test-connection",
+    response_model=CameraConnectionTestResponse,
+)
+def test_camera_connection(
+    payload: CameraConnectionTestRequest,
+    actor: User = Depends(get_current_user),
+) -> CameraConnectionTestResponse:
+    return service.test_camera_connection(payload, actor=actor)
 
 
 @router.post(

@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import math
+import os
 import re
+
+import httpx
 from datetime import datetime, timezone
 
 from fastapi import HTTPException, status
@@ -12,6 +15,8 @@ from sqlalchemy.orm import Session
 from app.modules.cameras import credential_vault, repository
 from app.modules.cameras.models import Camera
 from app.modules.cameras.schemas import (
+    CameraConnectionTestRequest,
+    CameraConnectionTestResponse,
     CameraCreate,
     CameraCredentialMigrationResponse,
     CameraHeartbeatRequest,
@@ -64,6 +69,75 @@ def ensure_manager(actor: User) -> None:
         status_code=status.HTTP_403_FORBIDDEN,
         detail="Only the Super Administrator can modify camera infrastructure.",
     )
+
+
+def test_camera_connection(
+    payload: CameraConnectionTestRequest,
+    *,
+    actor: User,
+) -> CameraConnectionTestResponse:
+    """Test V380 LAN authentication without storing the supplied password."""
+    ensure_manager(actor)
+
+    username = payload.credential_username.strip()
+    password = payload.credential_password
+    if not username or not password:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Camera username and password are required for the test.",
+        )
+
+    gateway_url = os.getenv(
+        "CAMERA_GATEWAY_CONTROL_URL",
+        "http://camera-gateway:8090",
+    ).rstrip("/")
+    shared_key = os.getenv("CAMERA_GATEWAY_SHARED_KEY", "").strip()
+    if not shared_key:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Camera gateway authentication is not configured.",
+        )
+
+    try:
+        response = httpx.post(
+            f"{gateway_url}/v1/test-connection",
+            headers={
+                "X-Camera-Gateway-Key": shared_key,
+                "Accept": "application/json",
+            },
+            json={
+                "host": payload.ip_address,
+                "port": payload.v380_port,
+                "device_id": payload.v380_device_id,
+                "username": username,
+                "password": password,
+            },
+            timeout=10.0,
+        )
+    except httpx.RequestError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Camera gateway connection-test service is unavailable.",
+        ) from exc
+
+    if response.status_code == status.HTTP_403_FORBIDDEN:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Camera gateway control authentication failed.",
+        )
+    if response.status_code >= 400:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Camera gateway rejected the connection-test request.",
+        )
+
+    try:
+        return CameraConnectionTestResponse.model_validate(response.json())
+    except (ValueError, TypeError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Camera gateway returned an invalid connection-test response.",
+        ) from exc
 
 
 def _normalize_credential_reference(value: str | None) -> str | None:

@@ -204,6 +204,13 @@ type DeviceOption = {
   gis_location_id: number | null
 }
 
+type CameraConnectionTestResponse = {
+  success: boolean
+  outcome: string
+  login_result: number | null
+  message: string
+}
+
 type CameraOptionsResponse = {
   locations: LocationSummary[]
   jetsons: DeviceOption[]
@@ -1055,7 +1062,59 @@ function CameraModal({
   })
   const [saving, setSaving] = useState(false)
   const [migrating, setMigrating] = useState(false)
+  const [testingConnection, setTestingConnection] = useState(false)
+  const [connectionTest, setConnectionTest] =
+    useState<CameraConnectionTestResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  function invalidateConnectionTest() {
+    setConnectionTest(null)
+  }
+
+  async function testV380Connection() {
+    setError(null)
+
+    if (!form.ip_address.trim()) {
+      setError("V380 cameras require an IP address.")
+      return
+    }
+    if (!positiveInteger(form.v380_device_id)) {
+      setError("V380 device ID must be a positive integer.")
+      return
+    }
+    if (!validPort(form.v380_port)) {
+      setError("V380 port must be between 1 and 65535.")
+      return
+    }
+    if (!form.credential_username.trim() || !form.credential_password) {
+      setError("Enter the V380 camera username and password before testing.")
+      return
+    }
+
+    setTestingConnection(true)
+    setConnectionTest(null)
+    try {
+      const result = await apiFetch<CameraConnectionTestResponse>(
+        "/cameras/test-connection",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ip_address: form.ip_address.trim(),
+            v380_port: Number(form.v380_port),
+            v380_device_id: Number(form.v380_device_id),
+            credential_username: form.credential_username.trim(),
+            credential_password: form.credential_password,
+          }),
+        },
+      )
+      setConnectionTest(result)
+    } catch (err) {
+      setError(messageFromError(err))
+    } finally {
+      setTestingConnection(false)
+    }
+  }
 
   async function submit(event: FormEvent) {
     event.preventDefault()
@@ -1099,6 +1158,14 @@ function CameraModal({
       !form.credential_username.trim()
     ) {
       setError("Camera username is required when changing the password.")
+      setSaving(false)
+      return
+    }
+
+    if (isV380 && !camera && !connectionTest?.success) {
+      setError(
+        "Test the V380 LAN connection successfully before registering this camera.",
+      )
       setSaving(false)
       return
     }
@@ -1218,9 +1285,10 @@ function CameraModal({
           <Field label="IP address">
             <input
               value={form.ip_address}
-              onChange={(e: ChangeEvent<HTMLInputElement>) =>
+              onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                invalidateConnectionTest()
                 setForm({ ...form, ip_address: e.target.value })
-              }
+              }}
               className={inputClass}
               placeholder="192.168.30.12"
             />
@@ -1231,6 +1299,7 @@ function CameraModal({
               value={form.stream_protocol}
               onChange={(e: ChangeEvent<HTMLSelectElement>) => {
                 const protocol = e.target.value as StreamProtocol
+                invalidateConnectionTest()
                 setForm({
                   ...form,
                   stream_protocol: protocol,
@@ -1261,9 +1330,10 @@ function CameraModal({
             <input
               autoComplete="off"
               value={form.credential_username}
-              onChange={(e: ChangeEvent<HTMLInputElement>) =>
+              onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                invalidateConnectionTest()
                 setForm({ ...form, credential_username: e.target.value })
-              }
+              }}
               className={inputClass}
               placeholder={form.stream_protocol === "v380" ? "admin" : "camera user"}
             />
@@ -1280,9 +1350,10 @@ function CameraModal({
               type="password"
               autoComplete="new-password"
               value={form.credential_password}
-              onChange={(e: ChangeEvent<HTMLInputElement>) =>
+              onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                invalidateConnectionTest()
                 setForm({ ...form, credential_password: e.target.value })
-              }
+              }}
               className={inputClass}
               placeholder={
                 camera?.credential_configured
@@ -1384,9 +1455,10 @@ function CameraModal({
                   min={1}
                   max={65535}
                   value={form.v380_port}
-                  onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                    invalidateConnectionTest()
                     setForm({ ...form, v380_port: e.target.value })
-                  }
+                  }}
                   className={inputClass}
                   placeholder="8800"
                 />
@@ -1399,9 +1471,10 @@ function CameraModal({
                   min={1}
                   step={1}
                   value={form.v380_device_id}
-                  onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                    invalidateConnectionTest()
                     setForm({ ...form, v380_device_id: e.target.value })
-                  }
+                  }}
                   className={inputClass}
                   placeholder="106519033"
                 />
@@ -1508,6 +1581,54 @@ function CameraModal({
           Enable AI processing for this camera
         </label>
 
+        {form.stream_protocol === "v380" && !camera && (
+          <div className="space-y-2 rounded-md border border-border bg-muted/20 p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <div className="text-sm font-medium text-foreground">
+                  V380 LAN connection test
+                </div>
+                <div className="mt-1 text-xs text-muted-foreground">
+                  Verify the camera IP, device ID, username and password before
+                  registration. The test does not save the password.
+                </div>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={testingConnection || saving}
+                onClick={() => void testV380Connection()}
+              >
+                {testingConnection ? "Testing…" : "Test connection"}
+              </Button>
+            </div>
+
+            {connectionTest && (
+              <div
+                className={cn(
+                  "rounded-md border px-3 py-2 text-xs",
+                  connectionTest.success
+                    ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700"
+                    : "border-destructive/30 bg-destructive/10 text-destructive",
+                )}
+              >
+                <div className="font-medium">
+                  {connectionTest.success
+                    ? "Camera authenticated successfully"
+                    : "Camera connection test failed"}
+                </div>
+                <div className="mt-1">{connectionTest.message}</div>
+                {connectionTest.login_result !== null && (
+                  <div className="mt-1 font-mono">
+                    V380 login result: {connectionTest.login_result}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="space-y-3 rounded-md border border-border bg-muted/20 p-3 text-xs text-muted-foreground">
           <div>
             Camera passwords are sent only when you register or rotate
@@ -1544,7 +1665,16 @@ function CameraModal({
           <Button type="button" variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" disabled={saving}>
+          <Button
+            type="submit"
+            disabled={
+              saving ||
+              testingConnection ||
+              (form.stream_protocol === "v380" &&
+                !camera &&
+                !connectionTest?.success)
+            }
+          >
             {saving
               ? "Saving…"
               : camera

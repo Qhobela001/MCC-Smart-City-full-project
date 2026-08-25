@@ -214,6 +214,29 @@ class CameraUpdate(BaseModel):
         return value
 
 
+class CameraConnectionTestRequest(BaseModel):
+    ip_address: str
+    v380_port: int = Field(default=8800, ge=1, le=65535)
+    v380_device_id: int = Field(ge=1)
+    credential_username: str = Field(min_length=1, max_length=150)
+    credential_password: str = Field(min_length=1, max_length=500)
+
+    @field_validator("ip_address")
+    @classmethod
+    def validate_ip_address(cls, value: str) -> str:
+        normalized = _validate_ip(value)
+        if normalized is None:
+            raise ValueError("IP address is required.")
+        return normalized
+
+
+class CameraConnectionTestResponse(BaseModel):
+    success: bool
+    outcome: str
+    login_result: int | None = None
+    message: str
+
+
 class CameraHeartbeatRequest(BaseModel):
     status: CameraStatus = CameraStatus.online
     stream_status: StreamStatus = StreamStatus.unknown

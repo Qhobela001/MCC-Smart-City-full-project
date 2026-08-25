@@ -5,6 +5,7 @@ import signal
 import threading
 import time
 
+from macrovideo.gateway.control import CameraGatewayControlServer
 from macrovideo.gateway.models import GatewayCameraConfig
 from macrovideo.gateway.registry import (
     CameraRegistryError,
@@ -66,29 +67,43 @@ class CameraGatewayService:
             flush=True,
         )
 
-        while not self.stop_event.is_set():
+        control_server: CameraGatewayControlServer | None = None
+        try:
             try:
-                items = self.registry.fetch()
-                self._reconcile(items)
-                print(
-                    f"[GATEWAY] registry sync complete: "
-                    f"{len(items)} V380 camera(s), "
-                    f"{len(self.workers)} worker(s).",
-                    flush=True,
-                )
-            except CameraRegistryError as exc:
-                # Existing workers keep streaming even if FastAPI is
-                # briefly unavailable. Registry failure must not drop video.
-                print(f"[GATEWAY] registry warning: {exc}", flush=True)
+                control_server = CameraGatewayControlServer()
+                control_server.start()
+            except (OSError, ValueError) as exc:
+                # Streaming must remain available even if the optional control
+                # endpoint cannot bind. Camera onboarding tests will return 503
+                # through the backend until this is corrected.
+                print(f"[GATEWAY] control API warning: {exc}", flush=True)
 
-            self.stop_event.wait(self.poll_seconds)
+            while not self.stop_event.is_set():
+                try:
+                    items = self.registry.fetch()
+                    self._reconcile(items)
+                    print(
+                        f"[GATEWAY] registry sync complete: "
+                        f"{len(items)} V380 camera(s), "
+                        f"{len(self.workers)} worker(s).",
+                        flush=True,
+                    )
+                except CameraRegistryError as exc:
+                    # Existing workers keep streaming even if FastAPI is
+                    # briefly unavailable. Registry failure must not drop video.
+                    print(f"[GATEWAY] registry warning: {exc}", flush=True)
 
-        print("[GATEWAY] stopping camera workers.", flush=True)
-        for worker in self.workers.values():
-            worker.stop()
-        for worker in self.workers.values():
-            worker.join(timeout=8)
-        self.workers.clear()
+                self.stop_event.wait(self.poll_seconds)
+        finally:
+            if control_server is not None:
+                control_server.stop()
+
+            print("[GATEWAY] stopping camera workers.", flush=True)
+            for worker in self.workers.values():
+                worker.stop()
+            for worker in self.workers.values():
+                worker.join(timeout=8)
+            self.workers.clear()
 
         return 0
 
