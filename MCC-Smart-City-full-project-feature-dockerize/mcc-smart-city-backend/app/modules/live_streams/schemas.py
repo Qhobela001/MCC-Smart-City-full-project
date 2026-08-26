@@ -45,6 +45,18 @@ class GatewayStatusRead(BaseModel):
     generated_at: datetime
 
 
+class CameraGatewayWorkerHealthRead(BaseModel):
+    camera_identifier: str
+    status: str
+    phase: str
+    seconds_since_last_frame: float | None = None
+    failure_code: str | None = None
+    failure_message: str | None = None
+    failure_at: datetime | None = None
+    consecutive_failures: int = 0
+    retry_seconds: float | None = None
+
+
 class CameraGatewayHealthRead(BaseModel):
     available: bool
     status: str
@@ -59,6 +71,10 @@ class CameraGatewayHealthRead(BaseModel):
     workers_online: int
     workers_degraded: int
     workers_offline: int
+    failure_code: str | None = None
+    failure_message: str | None = None
+    failure_at: datetime | None = None
+    workers: list[CameraGatewayWorkerHealthRead] = Field(default_factory=list)
     observed_at: datetime | None = None
     generated_at: datetime
 

@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-from macrovideo.gateway.health import CameraHealthTracker
+from macrovideo.gateway.health import (
+    CameraHealthTracker,
+    classify_worker_failure,
+)
 
 
 def test_worker_starts_degraded_then_becomes_offline() -> None:
@@ -39,3 +42,33 @@ def test_stopped_worker_is_immediately_offline() -> None:
     snapshot = tracker.snapshot()
     assert snapshot.status == "offline"
     assert snapshot.stream_status == "offline"
+
+
+def test_failure_is_safe_and_clears_after_recovery() -> None:
+    tracker = CameraHealthTracker(
+        degraded_after_seconds=15,
+        offline_after_seconds=60,
+    )
+    failure = classify_worker_failure(TimeoutError("sensitive internals"))
+
+    tracker.mark_retrying(failure)
+    failed = tracker.snapshot()
+    assert failed.failure_code == "connection_timeout"
+    assert "sensitive internals" not in (failed.failure_message or "")
+    assert failed.consecutive_failures == 1
+
+    tracker.mark_published()
+    recovered = tracker.snapshot()
+    assert recovered.status == "online"
+    assert recovered.failure_code is None
+    assert recovered.failure_message is None
+    assert recovered.consecutive_failures == 0
+
+
+def test_failure_classification_is_stable() -> None:
+    assert classify_worker_failure(PermissionError()).code == (
+        "authentication_rejected"
+    )
+    assert classify_worker_failure(ConnectionError()).code == "stream_ended"
+    assert classify_worker_failure(OSError()).code == "camera_unreachable"
+    assert classify_worker_failure(RuntimeError()).code == "publisher_failed"

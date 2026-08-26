@@ -33,12 +33,17 @@ class CameraGatewayService:
         self.registry_connected = False
         self.registered_camera_count = 0
         self.last_registry_sync_at: datetime | None = None
+        self.registry_failure_at: datetime | None = None
 
     def health_snapshot(self) -> dict[str, Any]:
         worker_items = list(self.workers.items())
+        worker_snapshots = [
+            (identifier, worker, worker.health.snapshot())
+            for identifier, worker in worker_items
+        ]
         worker_states = [
-            worker.health.snapshot().status
-            for _, worker in worker_items
+            snapshot.status
+            for _, _, snapshot in worker_snapshots
         ]
         workers_alive = sum(
             1 for _, worker in worker_items if worker.is_alive()
@@ -57,6 +62,31 @@ class CameraGatewayService:
             )
             else "degraded"
         )
+        failure_code = None
+        failure_message = None
+        failure_at = None
+        if not self.registry_connected:
+            failure_code = "registry_unavailable"
+            failure_message = (
+                "The gateway cannot refresh camera configuration from FastAPI. "
+                "Existing workers remain active."
+            )
+            failure_at = (
+                self.registry_failure_at.isoformat()
+                if self.registry_failure_at is not None
+                else None
+            )
+        elif workers_total != self.registered_camera_count:
+            failure_code = "worker_count_mismatch"
+            failure_message = (
+                "The number of camera workers does not match the current "
+                "camera registry."
+            )
+        elif workers_alive != workers_total:
+            failure_code = "worker_stopped"
+            failure_message = (
+                "One or more registered camera worker threads have stopped."
+            )
 
         return {
             "available": True,
@@ -79,6 +109,25 @@ class CameraGatewayService:
             "workers_online": state_counts["online"],
             "workers_degraded": state_counts["degraded"],
             "workers_offline": state_counts["offline"],
+            "failure_code": failure_code,
+            "failure_message": failure_message,
+            "failure_at": failure_at,
+            "workers": [
+                {
+                    "camera_identifier": identifier,
+                    "status": snapshot.status,
+                    "phase": snapshot.phase,
+                    "seconds_since_last_frame": (
+                        snapshot.seconds_since_last_frame
+                    ),
+                    "failure_code": snapshot.failure_code,
+                    "failure_message": snapshot.failure_message,
+                    "failure_at": snapshot.failure_at,
+                    "consecutive_failures": snapshot.consecutive_failures,
+                    "retry_seconds": worker.retry_seconds,
+                }
+                for identifier, worker, snapshot in worker_snapshots
+            ],
             "observed_at": datetime.now(timezone.utc).isoformat(),
         }
 
@@ -162,6 +211,7 @@ class CameraGatewayService:
                     self.registry_connected = True
                     self.registered_camera_count = len(items)
                     self.last_registry_sync_at = datetime.now(timezone.utc)
+                    self.registry_failure_at = None
                     print(
                         f"[GATEWAY] registry sync complete: "
                         f"{len(items)} V380 camera(s), "
@@ -170,6 +220,7 @@ class CameraGatewayService:
                     )
                 except CameraRegistryError as exc:
                     self.registry_connected = False
+                    self.registry_failure_at = datetime.now(timezone.utc)
                     # Existing workers keep streaming even if FastAPI is
                     # briefly unavailable. Registry failure must not drop video.
                     print(f"[GATEWAY] registry warning: {exc}", flush=True)

@@ -318,6 +318,10 @@ def camera_gateway_health() -> CameraGatewayHealthRead:
         workers_online=0,
         workers_degraded=0,
         workers_offline=0,
+        failure_code="gateway_unreachable",
+        failure_message=(
+            "FastAPI cannot reach the V380 camera gateway health service."
+        ),
         generated_at=generated_at,
     )
     if not shared_key:

@@ -6,7 +6,10 @@ import time
 
 import av
 
-from macrovideo.gateway.health import CameraHealthTracker
+from macrovideo.gateway.health import (
+    CameraHealthTracker,
+    classify_worker_failure,
+)
 from macrovideo.gateway.models import GatewayCameraConfig
 from macrovideo.gateway.publisher import FFmpegPublisher
 from macrovideo.protocol.legacy_lan_login import (
@@ -163,10 +166,11 @@ class CameraWorker(threading.Thread):
 
             except Exception as exc:
                 if not self.stop_event.is_set():
-                    self.health.mark_retrying()
+                    failure = classify_worker_failure(exc)
+                    self.health.mark_retrying(failure)
                     print(
                         f"[WORKER:{self.config.camera_identifier}] "
-                        f"offline/error: {type(exc).__name__}: {exc}",
+                        f"failure={failure.code}: {failure.message}",
                         flush=True,
                     )
 

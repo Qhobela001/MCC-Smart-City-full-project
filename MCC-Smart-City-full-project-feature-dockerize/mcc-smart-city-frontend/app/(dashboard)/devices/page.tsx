@@ -218,6 +218,18 @@ type CameraOptionsResponse = {
   can_manage: boolean
 }
 
+type CameraGatewayWorkerHealth = {
+  camera_identifier: string
+  status: "online" | "degraded" | "offline"
+  phase: string
+  seconds_since_last_frame: number | null
+  failure_code: string | null
+  failure_message: string | null
+  failure_at: string | null
+  consecutive_failures: number
+  retry_seconds: number | null
+}
+
 type CameraGatewayHealth = {
   available: boolean
   status: "online" | "degraded" | "offline"
@@ -232,6 +244,10 @@ type CameraGatewayHealth = {
   workers_online: number
   workers_degraded: number
   workers_offline: number
+  failure_code: string | null
+  failure_message: string | null
+  failure_at: string | null
+  workers: CameraGatewayWorkerHealth[]
   observed_at: string | null
   generated_at: string
 }
@@ -579,6 +595,7 @@ export default function DevicesPage() {
           canManage={canManage}
           onEdit={setCameraModal}
           onRetire={(camera) => void retireCamera(camera)}
+          workerHealth={gatewayHealth?.workers ?? []}
         />
       )}
 
@@ -638,6 +655,9 @@ function GatewayHealthPanel({
 }) {
   const available = Boolean(health?.available)
   const gatewayStatus = available ? health?.status ?? "degraded" : "offline"
+  const workerFailures = (health?.workers ?? []).filter(
+    (worker) => worker.failure_code && worker.failure_message,
+  )
 
   return (
     <Card>
@@ -695,6 +715,40 @@ function GatewayHealthPanel({
             value={formatDate(health?.last_registry_sync_at ?? null)}
           />
         </div>
+
+        {health?.failure_message && (
+          <FailureNotice
+            title={failureTitle(health.failure_code)}
+            message={health.failure_message}
+            detail={
+              health.failure_at
+                ? `Detected ${formatDate(health.failure_at)}`
+                : "Gateway health requires attention."
+            }
+          />
+        )}
+
+        {workerFailures.length > 0 && (
+          <div className="space-y-2">
+            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Active camera failures
+            </div>
+            <div className="grid gap-2 lg:grid-cols-2">
+              {workerFailures.map((worker) => (
+                <FailureNotice
+                  key={worker.camera_identifier}
+                  title={`${worker.camera_identifier} · ${failureTitle(
+                    worker.failure_code,
+                  )}`}
+                  message={worker.failure_message ?? "Camera worker failure."}
+                  detail={`${worker.consecutive_failures} consecutive attempt${
+                    worker.consecutive_failures === 1 ? "" : "s"
+                  } · retry every ${worker.retry_seconds ?? "—"} seconds`}
+                />
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="flex flex-wrap justify-between gap-2 text-xs text-muted-foreground">
           <span>
@@ -821,6 +875,7 @@ function CameraRegistry({
   canManage,
   onEdit,
   onRetire,
+  workerHealth,
 }: {
   items: Camera[]
   selected: Camera | null
@@ -828,7 +883,14 @@ function CameraRegistry({
   canManage: boolean
   onEdit: (camera: Camera) => void
   onRetire: (camera: Camera) => void
+  workerHealth: CameraGatewayWorkerHealth[]
 }) {
+  const selectedWorker = selected
+    ? workerHealth.find(
+        (worker) => worker.camera_identifier === selected.camera_identifier,
+      ) ?? null
+    : null
+
   return (
     <div className="grid gap-4 xl:grid-cols-[1fr_1.1fr]">
       <Card>
@@ -942,6 +1004,20 @@ function CameraRegistry({
                   value={formatDate(selected.last_seen_at)}
                 />
               </div>
+
+              {selectedWorker?.failure_message && (
+                <FailureNotice
+                  title={failureTitle(selectedWorker.failure_code)}
+                  message={selectedWorker.failure_message}
+                  detail={`${selectedWorker.consecutive_failures} consecutive attempt${
+                    selectedWorker.consecutive_failures === 1 ? "" : "s"
+                  } · automatic retry every ${
+                    selectedWorker.retry_seconds ?? "—"
+                  } seconds · detected ${formatDate(
+                    selectedWorker.failure_at,
+                  )}`}
+                />
+              )}
 
               <div className="rounded-md border border-border bg-muted/20 p-3">
                 <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -2358,6 +2434,27 @@ function formatDate(value: string | null) {
     : date.toLocaleString()
 }
 
+function FailureNotice({
+  title,
+  message,
+  detail,
+}: {
+  title: string
+  message: string
+  detail: string
+}) {
+  return (
+    <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3">
+      <div className="flex items-center gap-2 text-sm font-medium text-destructive">
+        <Activity className="size-4" />
+        {title}
+      </div>
+      <div className="mt-1 text-sm text-foreground">{message}</div>
+      <div className="mt-1 text-xs text-muted-foreground">{detail}</div>
+    </div>
+  )
+}
+
 function formatDuration(value: number | null) {
   if (value === null || !Number.isFinite(value) || value < 0) return "Unavailable"
 
@@ -2369,6 +2466,24 @@ function formatDuration(value: number | null) {
   if (days > 0) return `${days}d ${hours}h`
   if (hours > 0) return `${hours}h ${minutes}m`
   return `${minutes}m`
+}
+
+function failureTitle(code: string | null) {
+  const titles: Record<string, string> = {
+    authentication_rejected: "Authentication rejected",
+    connection_timeout: "Connection timeout",
+    video_decode_failed: "Video decoding failure",
+    publisher_failed: "Stream publishing failure",
+    stream_ended: "Live session ended",
+    camera_unreachable: "Camera unreachable",
+    worker_failed: "Camera worker failure",
+    registry_unavailable: "Camera registry unavailable",
+    worker_count_mismatch: "Worker count mismatch",
+    worker_stopped: "Camera worker stopped",
+    gateway_unreachable: "Camera gateway unreachable",
+  }
+
+  return code ? titles[code] ?? pretty(code) : "Operational failure"
 }
 
 function nullable(value: string) {
