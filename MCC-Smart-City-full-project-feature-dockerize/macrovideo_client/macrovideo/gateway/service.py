@@ -26,6 +26,10 @@ class CameraGatewayService:
             3.0,
             float(os.getenv("CAMERA_REGISTRY_POLL_SECONDS", "10")),
         )
+        self.worker_stop_timeout = max(
+            3.0,
+            float(os.getenv("CAMERA_WORKER_STOP_TIMEOUT_SECONDS", "12")),
+        )
         self.stop_event = threading.Event()
         self.workers: dict[str, CameraWorker] = {}
         self.started_monotonic = time.monotonic()
@@ -151,6 +155,38 @@ class CameraGatewayService:
     def request_stop(self, *_: object) -> None:
         self.stop_event.set()
 
+    def _stop_worker(
+        self,
+        identifier: str,
+        worker: CameraWorker,
+        *,
+        reason: str,
+    ) -> bool:
+        print(
+            f"[GATEWAY] stopping worker {identifier} ({reason}).",
+            flush=True,
+        )
+        worker.stop()
+        worker.join(timeout=self.worker_stop_timeout)
+
+        if worker.is_alive():
+            # Keep the worker registered so reconciliation cannot create a
+            # duplicate publisher while the original thread is still exiting.
+            print(
+                f"[GATEWAY] worker {identifier} shutdown pending; "
+                "no replacement worker will be started.",
+                flush=True,
+            )
+            return False
+
+        if self.workers.get(identifier) is worker:
+            self.workers.pop(identifier, None)
+        print(
+            f"[GATEWAY] worker {identifier} shutdown confirmed.",
+            flush=True,
+        )
+        return True
+
     def _reconcile(
         self,
         desired_items: list[GatewayCameraConfig],
@@ -164,14 +200,12 @@ class CameraGatewayService:
         for identifier, worker in list(self.workers.items()):
             desired_config = desired.get(identifier)
             if desired_config is None or desired_config != worker.config:
-                print(
-                    f"[GATEWAY] stopping worker {identifier} "
-                    f"(removed or configuration changed).",
-                    flush=True,
+                reason = (
+                    "disabled or retired"
+                    if desired_config is None
+                    else "configuration changed"
                 )
-                worker.stop()
-                worker.join(timeout=5)
-                self.workers.pop(identifier, None)
+                self._stop_worker(identifier, worker, reason=reason)
 
         for identifier, config in desired.items():
             existing = self.workers.get(identifier)

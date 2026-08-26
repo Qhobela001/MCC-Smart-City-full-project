@@ -730,6 +730,77 @@ def retire_camera(
     return camera
 
 
+def disable_camera(
+    db: Session,
+    camera: Camera,
+    *,
+    actor: User,
+) -> Camera:
+    """Disable one camera stream while retaining its registry record."""
+    ensure_manager(actor)
+    if (
+        not camera.is_active
+        or camera.status == "retired"
+        or camera.stream_status == "disabled"
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="A retired or inactive camera cannot be disabled.",
+        )
+
+    repository.update_camera(
+        db,
+        camera,
+        {"status": "maintenance", "stream_status": "disabled"},
+    )
+    db.commit()
+    db.refresh(camera)
+    return camera
+
+
+def enable_camera(
+    db: Session,
+    camera: Camera,
+    *,
+    actor: User,
+) -> Camera:
+    """Return a disabled camera to gateway reconciliation."""
+    ensure_manager(actor)
+    if not camera.is_active or camera.status == "retired":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="A retired or inactive camera cannot be enabled.",
+        )
+    if camera.stream_status != "disabled":
+        return camera
+
+    if camera.stream_protocol == StreamProtocol.v380.value:
+        missing = []
+        if not camera.ip_address:
+            missing.append("IP address")
+        if not camera.v380_device_id:
+            missing.append("V380 device ID")
+        if not camera.credential_reference:
+            missing.append("camera credentials")
+        if missing:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    "Camera cannot be enabled until these settings are "
+                    f"configured: {', '.join(missing)}."
+                ),
+            )
+
+    repository.update_camera(
+        db,
+        camera,
+        {"status": "configured", "stream_status": "unknown"},
+    )
+    db.commit()
+    db.refresh(camera)
+    return camera
+
+
 def record_heartbeat(
     db: Session,
     camera: Camera,
@@ -742,7 +813,10 @@ def record_heartbeat(
     if not camera.is_active or camera.status == "retired":
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Camera is retired or inactive and cannot accept heartbeats.",
+            detail=(
+                "Camera is retired, inactive, or disabled and cannot accept "
+                "heartbeats."
+            ),
         )
 
     now = datetime.now(timezone.utc)
@@ -767,10 +841,17 @@ def record_gateway_heartbeat(
     payload: CameraHeartbeatRequest,
 ) -> Camera:
     """Record a shared-key-authenticated observation from camera-gateway."""
-    if not camera.is_active or camera.status == "retired":
+    if (
+        not camera.is_active
+        or camera.status == "retired"
+        or camera.stream_status == "disabled"
+    ):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Camera is retired or inactive and cannot accept heartbeats.",
+            detail=(
+                "Camera is retired, inactive, or disabled and cannot accept "
+                "heartbeats."
+            ),
         )
 
     allowed_states = {"online", "degraded", "offline"}

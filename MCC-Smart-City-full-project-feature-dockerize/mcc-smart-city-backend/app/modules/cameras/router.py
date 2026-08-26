@@ -225,6 +225,28 @@ def retire_camera(
     return service.to_read(camera, actor=actor)
 
 
+@router.post("/{camera_id}/disable", response_model=CameraRead)
+def disable_camera(
+    camera_id: int,
+    db: Session = Depends(get_db),
+    actor: User = Depends(get_current_user),
+) -> CameraRead:
+    camera = service.get_camera_or_404(db, camera_id)
+    camera = service.disable_camera(db, camera, actor=actor)
+    return service.to_read(camera, actor=actor)
+
+
+@router.post("/{camera_id}/enable", response_model=CameraRead)
+def enable_camera(
+    camera_id: int,
+    db: Session = Depends(get_db),
+    actor: User = Depends(get_current_user),
+) -> CameraRead:
+    camera = service.get_camera_or_404(db, camera_id)
+    camera = service.enable_camera(db, camera, actor=actor)
+    return service.to_read(camera, actor=actor)
+
+
 @router.post(
     "/gateway/{camera_identifier}/heartbeat",
     response_model=CameraGatewayHeartbeatResponse,

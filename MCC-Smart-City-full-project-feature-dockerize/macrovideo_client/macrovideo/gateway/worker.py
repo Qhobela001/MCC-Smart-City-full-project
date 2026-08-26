@@ -39,6 +39,10 @@ class CameraWorker(threading.Thread):
             else float(os.getenv("CAMERA_RECONNECT_SECONDS", "5"))
         )
         self.stop_event = threading.Event()
+        self.stopped_event = threading.Event()
+        self._resource_lock = threading.Lock()
+        self._active_client: LegacyV2LiveClient | None = None
+        self._active_publisher: FFmpegPublisher | None = None
         degraded_after_seconds = float(
             os.getenv("CAMERA_DEGRADED_AFTER_SECONDS", "15")
         )
@@ -52,6 +56,44 @@ class CameraWorker(threading.Thread):
 
     def stop(self) -> None:
         self.stop_event.set()
+        with self._resource_lock:
+            client = self._active_client
+            publisher = self._active_publisher
+
+        # Closing active resources interrupts blocking media reads and ffmpeg
+        # writes so a targeted stop does not wait for the normal idle timeout.
+        if client is not None:
+            try:
+                client.close()
+            except Exception as exc:
+                print(
+                    f"[WORKER:{self.config.camera_identifier}] "
+                    f"client close warning: {type(exc).__name__}.",
+                    flush=True,
+                )
+        if publisher is not None:
+            try:
+                publisher.close()
+            except Exception as exc:
+                print(
+                    f"[WORKER:{self.config.camera_identifier}] "
+                    f"publisher close warning: {type(exc).__name__}.",
+                    flush=True,
+                )
+
+    def _set_active_client(
+        self,
+        client: LegacyV2LiveClient | None,
+    ) -> None:
+        with self._resource_lock:
+            self._active_client = client
+
+    def _set_active_publisher(
+        self,
+        publisher: FFmpegPublisher | None,
+    ) -> None:
+        with self._resource_lock:
+            self._active_publisher = publisher
 
     def run(self) -> None:
         print(
@@ -100,6 +142,7 @@ class CameraWorker(threading.Thread):
                         os.getenv("V380_LIVE_IDLE_TIMEOUT", "20")
                     ),
                 )
+                self._set_active_client(client)
                 start_response = client.connect()
 
                 print(
@@ -141,6 +184,10 @@ class CameraWorker(threading.Thread):
                                     fps=fps,
                                 )
                                 publisher.start()
+                                self._set_active_publisher(publisher)
+
+                            if self.stop_event.is_set():
+                                break
 
                             publisher.write_bgr(image.tobytes())
                             published += 1
@@ -177,8 +224,10 @@ class CameraWorker(threading.Thread):
             finally:
                 if publisher is not None:
                     publisher.close()
+                    self._set_active_publisher(None)
                 if client is not None:
                     client.close()
+                    self._set_active_client(None)
 
             if not self.stop_event.is_set():
                 print(
@@ -189,6 +238,7 @@ class CameraWorker(threading.Thread):
                 self.stop_event.wait(self.retry_seconds)
 
         self.health.mark_stopped()
+        self.stopped_event.set()
         print(
             f"[WORKER:{self.config.camera_identifier}] stopped.",
             flush=True,

@@ -445,10 +445,48 @@ export default function DevicesPage() {
     devices.find((device) => device.id === selectedDeviceId) ?? null
 
   async function retireCamera(camera: Camera) {
-    if (!window.confirm(`Retire ${camera.camera_identifier}?`)) return
+    if (
+      !window.confirm(
+        `Permanently retire ${camera.camera_identifier}? Its worker will stop, the record cannot be re-enabled, and other camera workers will remain running.`,
+      )
+    ) return
 
     try {
       await apiFetch<Camera>(`/cameras/${camera.id}`, { method: "DELETE" })
+      await loadData("refresh")
+    } catch (err) {
+      setError(messageFromError(err))
+    }
+  }
+
+  async function disableCamera(camera: Camera) {
+    if (
+      !window.confirm(
+        `Disable ${camera.camera_identifier}? Only this camera worker will stop; all other camera streams will remain running.`,
+      )
+    ) return
+
+    try {
+      await apiFetch<Camera>(`/cameras/${camera.id}/disable`, {
+        method: "POST",
+      })
+      await loadData("refresh")
+    } catch (err) {
+      setError(messageFromError(err))
+    }
+  }
+
+  async function enableCamera(camera: Camera) {
+    if (
+      !window.confirm(
+        `Enable ${camera.camera_identifier}? The gateway will start a fresh worker for this camera only.`,
+      )
+    ) return
+
+    try {
+      await apiFetch<Camera>(`/cameras/${camera.id}/enable`, {
+        method: "POST",
+      })
       await loadData("refresh")
     } catch (err) {
       setError(messageFromError(err))
@@ -594,6 +632,8 @@ export default function DevicesPage() {
           onSelect={setSelectedCameraId}
           canManage={canManage}
           onEdit={setCameraModal}
+          onDisable={(camera) => void disableCamera(camera)}
+          onEnable={(camera) => void enableCamera(camera)}
           onRetire={(camera) => void retireCamera(camera)}
           workerHealth={gatewayHealth?.workers ?? []}
         />
@@ -874,6 +914,8 @@ function CameraRegistry({
   onSelect,
   canManage,
   onEdit,
+  onDisable,
+  onEnable,
   onRetire,
   workerHealth,
 }: {
@@ -882,6 +924,8 @@ function CameraRegistry({
   onSelect: (id: number) => void
   canManage: boolean
   onEdit: (camera: Camera) => void
+  onDisable: (camera: Camera) => void
+  onEnable: (camera: Camera) => void
   onRetire: (camera: Camera) => void
   workerHealth: CameraGatewayWorkerHealth[]
 }) {
@@ -1038,6 +1082,25 @@ function CameraRegistry({
                     <Pencil className="size-3.5" />
                     Edit camera
                   </Button>
+                  {selected.stream_status === "disabled" ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => onEnable(selected)}
+                    >
+                      <Power className="size-3.5" />
+                      Enable camera
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => onDisable(selected)}
+                    >
+                      <Power className="size-3.5" />
+                      Disable stream
+                    </Button>
+                  )}
                   <Button
                     size="sm"
                     variant="outline"
