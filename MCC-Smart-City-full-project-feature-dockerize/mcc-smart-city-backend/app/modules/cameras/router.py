@@ -1,4 +1,7 @@
-from fastapi import APIRouter, Depends, Query
+import hmac
+import os
+
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user, get_db
@@ -8,6 +11,7 @@ from app.modules.cameras.schemas import (
     CameraConnectionTestResponse,
     CameraCreate,
     CameraCredentialMigrationResponse,
+    CameraGatewayHeartbeatResponse,
     CameraHeartbeatRequest,
     CameraListResponse,
     CameraOptionsResponse,
@@ -27,6 +31,24 @@ router = APIRouter(
     prefix="/cameras",
     tags=["Camera & Device Management"],
 )
+
+
+def require_camera_gateway(
+    supplied_key: str | None = Header(
+        default=None,
+        alias="X-Camera-Gateway-Key",
+    ),
+) -> None:
+    expected_key = os.getenv("CAMERA_GATEWAY_SHARED_KEY", "")
+    if (
+        not expected_key
+        or supplied_key is None
+        or not hmac.compare_digest(supplied_key, expected_key)
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Camera gateway authentication failed.",
+        )
 
 
 @router.get(
@@ -201,6 +223,31 @@ def retire_camera(
         actor=actor,
     )
     return service.to_read(camera, actor=actor)
+
+
+@router.post(
+    "/gateway/{camera_identifier}/heartbeat",
+    response_model=CameraGatewayHeartbeatResponse,
+)
+def record_gateway_camera_heartbeat(
+    camera_identifier: str,
+    payload: CameraHeartbeatRequest,
+    db: Session = Depends(get_db),
+    _: None = Depends(require_camera_gateway),
+) -> CameraGatewayHeartbeatResponse:
+    camera = service.get_camera_by_identifier_or_404(
+        db,
+        camera_identifier,
+    )
+    camera = service.record_gateway_heartbeat(db, camera, payload)
+    return CameraGatewayHeartbeatResponse(
+        camera_id=camera.id,
+        camera_identifier=camera.camera_identifier,
+        status=CameraStatus(camera.status),
+        stream_status=StreamStatus(camera.stream_status),
+        last_seen_at=camera.last_seen_at,
+        last_stream_check_at=camera.last_stream_check_at,
+    )
 
 
 @router.post(

@@ -6,6 +6,7 @@ import time
 
 import av
 
+from macrovideo.gateway.health import CameraHealthTracker
 from macrovideo.gateway.models import GatewayCameraConfig
 from macrovideo.gateway.publisher import FFmpegPublisher
 from macrovideo.protocol.legacy_lan_login import (
@@ -35,6 +36,16 @@ class CameraWorker(threading.Thread):
             else float(os.getenv("CAMERA_RECONNECT_SECONDS", "5"))
         )
         self.stop_event = threading.Event()
+        degraded_after_seconds = float(
+            os.getenv("CAMERA_DEGRADED_AFTER_SECONDS", "15")
+        )
+        offline_after_seconds = float(
+            os.getenv("CAMERA_OFFLINE_AFTER_SECONDS", "60")
+        )
+        self.health = CameraHealthTracker(
+            degraded_after_seconds=degraded_after_seconds,
+            offline_after_seconds=offline_after_seconds,
+        )
 
     def stop(self) -> None:
         self.stop_event.set()
@@ -52,6 +63,7 @@ class CameraWorker(threading.Thread):
             publisher: FFmpegPublisher | None = None
 
             try:
+                self.health.mark_connecting()
                 login_exchange = perform_legacy_lan_login(
                     host=self.config.host,
                     port=self.config.port,
@@ -129,6 +141,7 @@ class CameraWorker(threading.Thread):
 
                             publisher.write_bgr(image.tobytes())
                             published += 1
+                            self.health.mark_published()
 
                             now = time.monotonic()
                             if now - last_report >= 10:
@@ -150,6 +163,7 @@ class CameraWorker(threading.Thread):
 
             except Exception as exc:
                 if not self.stop_event.is_set():
+                    self.health.mark_retrying()
                     print(
                         f"[WORKER:{self.config.camera_identifier}] "
                         f"offline/error: {type(exc).__name__}: {exc}",
@@ -170,6 +184,7 @@ class CameraWorker(threading.Thread):
                 )
                 self.stop_event.wait(self.retry_seconds)
 
+        self.health.mark_stopped()
         print(
             f"[WORKER:{self.config.camera_identifier}] stopped.",
             flush=True,

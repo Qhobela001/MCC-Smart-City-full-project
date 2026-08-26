@@ -9,7 +9,9 @@ from macrovideo.gateway.control import CameraGatewayControlServer
 from macrovideo.gateway.models import GatewayCameraConfig
 from macrovideo.gateway.registry import (
     CameraRegistryError,
+    CameraStatusReportError,
     MCCCameraRegistry,
+    MCCCameraStatusReporter,
 )
 from macrovideo.gateway.worker import CameraWorker
 
@@ -17,12 +19,30 @@ from macrovideo.gateway.worker import CameraWorker
 class CameraGatewayService:
     def __init__(self) -> None:
         self.registry = MCCCameraRegistry()
+        self.status_reporter = MCCCameraStatusReporter()
         self.poll_seconds = max(
             3.0,
             float(os.getenv("CAMERA_REGISTRY_POLL_SECONDS", "10")),
         )
         self.stop_event = threading.Event()
         self.workers: dict[str, CameraWorker] = {}
+
+    def _report_worker_health(self) -> None:
+        for identifier, worker in list(self.workers.items()):
+            snapshot = worker.health.snapshot()
+            try:
+                self.status_reporter.report(
+                    camera_identifier=identifier,
+                    status=snapshot.status,
+                    stream_status=snapshot.stream_status,
+                )
+            except CameraStatusReportError as exc:
+                # Status reporting is deliberately fail-open: loss of FastAPI
+                # must never stop or restart an existing camera worker.
+                print(
+                    f"[GATEWAY] status warning for {identifier}: {exc}",
+                    flush=True,
+                )
 
     def request_stop(self, *_: object) -> None:
         self.stop_event.set()
@@ -92,6 +112,8 @@ class CameraGatewayService:
                     # Existing workers keep streaming even if FastAPI is
                     # briefly unavailable. Registry failure must not drop video.
                     print(f"[GATEWAY] registry warning: {exc}", flush=True)
+
+                self._report_worker_health()
 
                 self.stop_event.wait(self.poll_seconds)
         finally:

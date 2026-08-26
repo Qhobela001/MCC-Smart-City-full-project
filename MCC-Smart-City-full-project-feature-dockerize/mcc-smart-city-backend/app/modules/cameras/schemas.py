@@ -242,6 +242,15 @@ class CameraHeartbeatRequest(BaseModel):
     stream_status: StreamStatus = StreamStatus.unknown
 
 
+class CameraGatewayHeartbeatResponse(BaseModel):
+    camera_id: int
+    camera_identifier: str
+    status: CameraStatus
+    stream_status: StreamStatus
+    last_seen_at: datetime | None
+    last_stream_check_at: datetime
+
+
 class CameraCredentialMigrationResponse(BaseModel):
     camera_id: int
     camera_identifier: str

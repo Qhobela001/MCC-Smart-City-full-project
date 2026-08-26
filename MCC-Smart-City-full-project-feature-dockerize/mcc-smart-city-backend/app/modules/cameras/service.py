@@ -761,6 +761,48 @@ def record_heartbeat(
     return camera
 
 
+def record_gateway_heartbeat(
+    db: Session,
+    camera: Camera,
+    payload: CameraHeartbeatRequest,
+) -> Camera:
+    """Record a shared-key-authenticated observation from camera-gateway."""
+    if not camera.is_active or camera.status == "retired":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Camera is retired or inactive and cannot accept heartbeats.",
+        )
+
+    allowed_states = {"online", "degraded", "offline"}
+    reported_status = payload.status.value
+    reported_stream_status = payload.stream_status.value
+    if (
+        reported_status not in allowed_states
+        or reported_stream_status not in allowed_states
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                "Gateway heartbeats may report only online, degraded, "
+                "or offline states."
+            ),
+        )
+
+    now = datetime.now(timezone.utc)
+    values: dict[str, object] = {
+        "status": reported_status,
+        "stream_status": reported_stream_status,
+        "last_stream_check_at": now,
+    }
+    if reported_status == "online":
+        values["last_seen_at"] = now
+
+    repository.update_camera(db, camera, values)
+    db.commit()
+    db.refresh(camera)
+    return camera
+
+
 def _location_summary(
     location: GISLocation | None,
 ) -> InfrastructureLocationSummary | None:
