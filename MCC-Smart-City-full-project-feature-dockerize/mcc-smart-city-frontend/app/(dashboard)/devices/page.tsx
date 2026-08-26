@@ -218,6 +218,24 @@ type CameraOptionsResponse = {
   can_manage: boolean
 }
 
+type CameraGatewayHealth = {
+  available: boolean
+  status: "online" | "degraded" | "offline"
+  started_at: string | null
+  uptime_seconds: number | null
+  registry_connected: boolean
+  registered_cameras: number
+  last_registry_sync_at: string | null
+  poll_seconds: number | null
+  workers_total: number
+  workers_alive: number
+  workers_online: number
+  workers_degraded: number
+  workers_offline: number
+  observed_at: string | null
+  generated_at: string
+}
+
 type Tab = "overview" | "cameras" | "devices"
 
 const DEVICE_TYPES: DeviceType[] = [
@@ -273,6 +291,8 @@ export default function DevicesPage() {
   const [cameras, setCameras] = useState<Camera[]>([])
   const [devices, setDevices] = useState<InfrastructureDevice[]>([])
   const [options, setOptions] = useState<CameraOptionsResponse | null>(null)
+  const [gatewayHealth, setGatewayHealth] =
+    useState<CameraGatewayHealth | null>(null)
   const [selectedCameraId, setSelectedCameraId] = useState<number | null>(null)
   const [selectedDeviceId, setSelectedDeviceId] = useState<number | null>(null)
   const [search, setSearch] = useState("")
@@ -299,6 +319,7 @@ export default function DevicesPage() {
         nextCameras,
         nextDevices,
         nextOptions,
+        nextGatewayHealth,
       ] = await Promise.all([
         apiFetch<CameraSummaryResponse>("/cameras/summary"),
         apiFetch<DeviceSummaryResponse>("/devices/summary"),
@@ -309,6 +330,7 @@ export default function DevicesPage() {
           "/devices?page=1&page_size=200&active_only=false",
         ),
         apiFetch<CameraOptionsResponse>("/cameras/options"),
+        apiFetch<CameraGatewayHealth>("/live-streams/camera-gateway/health"),
       ])
 
       setCameraSummary(nextCameraSummary)
@@ -316,6 +338,7 @@ export default function DevicesPage() {
       setCameras(nextCameras.items)
       setDevices(nextDevices.items)
       setOptions(nextOptions)
+      setGatewayHealth(nextGatewayHealth)
       setError(null)
 
       setSelectedCameraId((current) => {
@@ -347,6 +370,18 @@ export default function DevicesPage() {
 
   useEffect(() => {
     void loadData()
+  }, [])
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      void apiFetch<CameraGatewayHealth>(
+        "/live-streams/camera-gateway/health",
+      )
+        .then(setGatewayHealth)
+        .catch(() => setGatewayHealth(null))
+    }, 10_000)
+
+    return () => window.clearInterval(interval)
   }, [])
 
   const filteredCameras = useMemo(() => {
@@ -472,6 +507,8 @@ export default function DevicesPage() {
 
       {error && <FormError>{error}</FormError>}
 
+      <GatewayHealthPanel health={gatewayHealth} />
+
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard
           icon={<CameraIcon className="size-4" />}
@@ -591,6 +628,85 @@ export default function DevicesPage() {
         />
       )}
     </div>
+  )
+}
+
+function GatewayHealthPanel({
+  health,
+}: {
+  health: CameraGatewayHealth | null
+}) {
+  const available = Boolean(health?.available)
+  const gatewayStatus = available ? health?.status ?? "degraded" : "offline"
+
+  return (
+    <Card>
+      <CardContent className="space-y-4 p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <div
+              className={cn(
+                "mt-0.5 rounded-md p-2",
+                available
+                  ? "bg-emerald-500/10 text-emerald-600"
+                  : "bg-destructive/10 text-destructive",
+              )}
+            >
+              <Network className="size-4" />
+            </div>
+            <div>
+              <h2 className="font-semibold text-foreground">
+                V380 camera gateway
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                Runtime health of the service that logs into field cameras and
+                publishes their streams to MediaMTX.
+              </p>
+            </div>
+          </div>
+          <StatusBadge status={gatewayStatus} />
+        </div>
+
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-6">
+          <Info
+            label="Gateway process"
+            value={available ? "Reachable" : "Unreachable"}
+          />
+          <Info
+            label="Registry connection"
+            value={health?.registry_connected ? "Connected" : "Disconnected"}
+          />
+          <Info
+            label="Workers alive"
+            value={`${health?.workers_alive ?? 0}/${health?.workers_total ?? 0}`}
+          />
+          <Info
+            label="Worker states"
+            value={`${health?.workers_online ?? 0} online · ${
+              health?.workers_degraded ?? 0
+            } degraded · ${health?.workers_offline ?? 0} offline`}
+          />
+          <Info
+            label="Gateway uptime"
+            value={formatDuration(health?.uptime_seconds ?? null)}
+          />
+          <Info
+            label="Last registry sync"
+            value={formatDate(health?.last_registry_sync_at ?? null)}
+          />
+        </div>
+
+        <div className="flex flex-wrap justify-between gap-2 text-xs text-muted-foreground">
+          <span>
+            {health?.registered_cameras ?? 0} registered camera configurations ·
+            polling every {health?.poll_seconds ?? "—"} seconds
+          </span>
+          <span>
+            Observed {formatDate(health?.observed_at ?? health?.generated_at ?? null)}
+          </span>
+        </div>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -2240,6 +2356,19 @@ function formatDate(value: string | null) {
   return Number.isNaN(date.getTime())
     ? "Unknown"
     : date.toLocaleString()
+}
+
+function formatDuration(value: number | null) {
+  if (value === null || !Number.isFinite(value) || value < 0) return "Unavailable"
+
+  const totalSeconds = Math.floor(value)
+  const days = Math.floor(totalSeconds / 86_400)
+  const hours = Math.floor((totalSeconds % 86_400) / 3_600)
+  const minutes = Math.floor((totalSeconds % 3_600) / 60)
+
+  if (days > 0) return `${days}d ${hours}h`
+  if (hours > 0) return `${hours}h ${minutes}m`
+  return `${minutes}m`
 }
 
 function nullable(value: string) {

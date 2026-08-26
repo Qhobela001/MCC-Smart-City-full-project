@@ -21,6 +21,7 @@ from app.modules.cameras.models import Camera
 from app.modules.cameras import credential_vault
 from app.modules.cameras import repository as camera_repository
 from app.modules.live_streams.schemas import (
+    CameraGatewayHealthRead,
     GatewayStatusRead,
     GatewayCameraConfigRead,
     GatewayCameraRegistryResponse,
@@ -297,6 +298,59 @@ def gateway_status() -> GatewayStatusRead:
         available=available,
         generated_at=_utcnow(),
     )
+
+
+def camera_gateway_health() -> CameraGatewayHealthRead:
+    control_url = os.getenv(
+        "CAMERA_GATEWAY_CONTROL_URL",
+        "http://camera-gateway:8090",
+    ).rstrip("/")
+    shared_key = os.getenv("CAMERA_GATEWAY_SHARED_KEY", "").strip()
+    generated_at = _utcnow()
+
+    unavailable = CameraGatewayHealthRead(
+        available=False,
+        status="offline",
+        registry_connected=False,
+        registered_cameras=0,
+        workers_total=0,
+        workers_alive=0,
+        workers_online=0,
+        workers_degraded=0,
+        workers_offline=0,
+        generated_at=generated_at,
+    )
+    if not shared_key:
+        return unavailable
+
+    request = Request(
+        f"{control_url}/v1/health",
+        headers={
+            "X-Camera-Gateway-Key": shared_key,
+            "Accept": "application/json",
+        },
+        method="GET",
+    )
+
+    try:
+        with urlopen(request, timeout=5.0) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+        if not isinstance(payload, dict):
+            return unavailable
+        return CameraGatewayHealthRead(
+            **payload,
+            generated_at=generated_at,
+        )
+    except (
+        HTTPError,
+        URLError,
+        TimeoutError,
+        OSError,
+        TypeError,
+        ValueError,
+        json.JSONDecodeError,
+    ):
+        return unavailable
 
 
 def _path_states() -> tuple[bool, dict[str, dict[str, Any]]]:

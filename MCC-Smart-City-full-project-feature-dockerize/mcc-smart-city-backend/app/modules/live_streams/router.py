@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.core.deps import get_db, require_permission
 from app.modules.live_streams import service
 from app.modules.live_streams.schemas import (
+    CameraGatewayHealthRead,
     GatewayStatusRead,
     GatewayCameraRegistryResponse,
     LiveCameraRead,
@@ -106,6 +107,17 @@ def get_gateway_camera_registry(
         )
 
     return service.list_gateway_camera_configs(db)
+
+
+@router.get(
+    "/camera-gateway/health",
+    response_model=CameraGatewayHealthRead,
+)
+def get_camera_gateway_health(
+    actor: User = Depends(require_permission("cameras.view")),
+) -> CameraGatewayHealthRead:
+    del actor
+    return service.camera_gateway_health()
 
 
 @router.get(

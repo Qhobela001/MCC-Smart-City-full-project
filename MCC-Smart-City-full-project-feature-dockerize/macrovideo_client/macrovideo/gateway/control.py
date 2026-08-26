@@ -6,7 +6,7 @@ import os
 import socket
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import Any
+from typing import Any, Callable
 
 from macrovideo.protocol.legacy_lan_login import perform_legacy_lan_login
 
@@ -35,11 +35,30 @@ class _ControlHandler(BaseHTTPRequestHandler):
         return bool(expected) and hmac.compare_digest(supplied, expected)
 
     def do_GET(self) -> None:
-        if self.path != "/health":
+        if self.path == "/health":
+            self._write_json(200, {"status": "ok"})
+            return
+
+        if self.path != "/v1/health":
             self._write_json(404, {"detail": "Not found."})
             return
 
-        self._write_json(200, {"status": "ok"})
+        if not self._authorized():
+            self._write_json(403, {"detail": "Gateway authentication failed."})
+            return
+
+        provider = getattr(self.server, "health_provider", None)
+        if provider is None:
+            self._write_json(503, {"detail": "Gateway health is unavailable."})
+            return
+
+        try:
+            payload = provider()
+        except Exception:
+            self._write_json(503, {"detail": "Gateway health is unavailable."})
+            return
+
+        self._write_json(200, payload)
 
     def do_POST(self) -> None:
         if self.path != "/v1/test-connection":
@@ -151,11 +170,16 @@ class _ControlHandler(BaseHTTPRequestHandler):
 
 
 class CameraGatewayControlServer:
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        health_provider: Callable[[], dict[str, Any]] | None = None,
+    ) -> None:
         host = os.getenv("CAMERA_GATEWAY_CONTROL_HOST", "0.0.0.0").strip()
         port = int(os.getenv("CAMERA_GATEWAY_CONTROL_PORT", "8090"))
         self.address = (host, port)
         self.server = ThreadingHTTPServer(self.address, _ControlHandler)
+        self.server.health_provider = health_provider  # type: ignore[attr-defined]
         self.server.daemon_threads = True
         self.thread = threading.Thread(
             target=self.server.serve_forever,

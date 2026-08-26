@@ -45,6 +45,24 @@ class GatewayStatusRead(BaseModel):
     generated_at: datetime
 
 
+class CameraGatewayHealthRead(BaseModel):
+    available: bool
+    status: str
+    started_at: datetime | None = None
+    uptime_seconds: float | None = None
+    registry_connected: bool
+    registered_cameras: int
+    last_registry_sync_at: datetime | None = None
+    poll_seconds: float | None = None
+    workers_total: int
+    workers_alive: int
+    workers_online: int
+    workers_degraded: int
+    workers_offline: int
+    observed_at: datetime | None = None
+    generated_at: datetime
+
+
 class LiveStreamSessionResponse(BaseModel):
     camera: LiveCameraRead
     protocol: str = "webrtc"
