@@ -155,6 +155,20 @@ class CameraGatewayService:
     def request_stop(self, *_: object) -> None:
         self.stop_event.set()
 
+    def send_ptz(self, camera_identifier: str, direction: str, head: str) -> dict[str, Any]:
+        identifier = camera_identifier.strip().upper()
+        worker = self.workers.get(identifier)
+        if worker is None or not worker.is_alive():
+            raise LookupError("Camera worker was not found.")
+        worker.send_ptz(direction, head)
+        return {
+            "success": True,
+            "camera_identifier": identifier,
+            "direction": direction,
+            "head": head,
+            "message": f"PTZ {direction} command sent to {head} head.",
+        }
+
     def _stop_worker(
         self,
         identifier: str,
@@ -230,6 +244,7 @@ class CameraGatewayService:
             try:
                 control_server = CameraGatewayControlServer(
                     health_provider=self.health_snapshot,
+                    ptz_provider=self.send_ptz,
                 )
                 control_server.start()
             except (OSError, ValueError) as exc:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import socket
+import threading
 import time
 from dataclasses import dataclass
 from typing import Final, Iterator
@@ -23,6 +24,7 @@ from macrovideo.protocol.legacy_media_reassembler import (
     TRANSPORT_HEADER_SIZE,
     parse_fragment_header,
 )
+from macrovideo.protocol.ptz import PTZDirection, PTZHead, build_ptz_packet
 
 
 VIDEO_FRAME_TYPES: Final[set[int]] = {
@@ -135,6 +137,7 @@ class LegacyV2LiveClient:
         self.idle_timeout = idle_timeout
 
         self._socket: socket.socket | None = None
+        self._send_lock = threading.Lock()
         self._start_response: LiveStartResponse | None = None
         self._assembler = LegacyFrameAssembler()
         self._sequence = 0
@@ -349,13 +352,12 @@ class LegacyV2LiveClient:
         if sock is None:
             return
 
-        try:
-            sock.sendall(
-                build_live_stop_request()
-            )
-            print("[LIVE] Command 1008 sent.")
-        except OSError:
-            pass
+        with self._send_lock:
+            try:
+                sock.sendall(build_live_stop_request())
+                print("[LIVE] Command 1008 sent.")
+            except OSError:
+                pass
 
         try:
             sock.shutdown(
@@ -366,6 +368,17 @@ class LegacyV2LiveClient:
 
         sock.close()
         self._assembler.reset()
+
+    def send_ptz(
+        self,
+        direction: PTZDirection | str,
+        head: PTZHead | str = PTZHead.main,
+    ) -> None:
+        """Send one PTZ nudge without disturbing media reception."""
+        packet = build_ptz_packet(direction, head)
+        with self._send_lock:
+            sock = self._require_socket()
+            sock.sendall(packet)
 
     def _require_socket(
         self,

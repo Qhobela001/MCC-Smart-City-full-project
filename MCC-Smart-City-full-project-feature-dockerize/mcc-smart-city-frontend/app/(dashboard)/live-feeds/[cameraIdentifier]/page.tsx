@@ -3,14 +3,19 @@
 import Link from "next/link"
 import { useParams } from "next/navigation"
 import { useCallback, useEffect, useRef, useState } from "react"
+import type { ReactNode } from "react"
 import {
   ArrowLeft,
+  ArrowDown,
+  ArrowUp,
   Bot,
   Cctv,
   Expand,
   Loader2,
   MapPin,
   RefreshCw,
+  MoveLeft,
+  MoveRight,
   Router,
   Volume2,
   VolumeX,
@@ -35,6 +40,10 @@ export default function CameraLiveViewerPage() {
   const [error, setError] = useState<string | null>(null)
   const [muted, setMuted] = useState(true)
   const [sessionKey, setSessionKey] = useState(0)
+  const [ptzBusy, setPtzBusy] = useState<string | null>(null)
+  const [ptzHead, setPtzHead] = useState<"main" | "right" | "left">("main")
+  const [ptzMessage, setPtzMessage] = useState<string | null>(null)
+  const [ptzError, setPtzError] = useState<string | null>(null)
 
   const connect = useCallback(async () => {
     setLoading(true)
@@ -80,6 +89,31 @@ export default function CameraLiveViewerPage() {
       await playerContainerRef.current?.requestFullscreen()
     } catch {
       // Browser can reject fullscreen when it is not initiated by the user.
+    }
+  }
+
+  async function sendPtz(direction: "up" | "down" | "left" | "right") {
+    if (ptzBusy) return
+    setPtzBusy(direction)
+    setPtzMessage(null)
+    setPtzError(null)
+    try {
+      const result = await apiFetch<{ message: string }>(
+        `/live-streams/cameras/${encodeURIComponent(cameraIdentifier)}/ptz`,
+        {
+          method: "POST",
+          body: JSON.stringify({ direction, head: ptzHead }),
+        },
+      )
+      setPtzMessage(result.message)
+    } catch (reason) {
+      setPtzError(
+        reason instanceof Error
+          ? reason.message
+          : "Unable to move this camera.",
+      )
+    } finally {
+      setPtzBusy(null)
     }
   }
 
@@ -166,6 +200,88 @@ export default function CameraLiveViewerPage() {
         )}
       </div>
 
+      <section className="rounded-xl border border-border bg-card p-4 shadow-sm">
+        <div className="mb-4 grid grid-cols-3 gap-2" aria-label="PTZ camera head">
+          {([
+            ["left", "Left"],
+            ["main", "Main"],
+            ["right", "Right"],
+          ] as const).map(([head, label]) => (
+            <button
+              key={head}
+              type="button"
+              onClick={() => setPtzHead(head)}
+              aria-pressed={ptzHead === head}
+              className={`rounded-lg border-2 px-3 py-2 text-sm font-medium transition ${
+                ptzHead === head
+                  ? "border-red-500 bg-red-500/10 text-red-600"
+                  : "border-border hover:bg-accent"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h3 className="text-sm font-semibold">Pan and tilt control</h3>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Each press sends one short movement nudge through the active V380
+              stream. Camera streaming remains connected.
+            </p>
+          </div>
+
+          <div
+            className="grid grid-cols-3 gap-2"
+            aria-label="Camera movement controls"
+          >
+            <span />
+            <PtzButton
+              label="Tilt up"
+              disabled={!session || ptzBusy !== null}
+              active={ptzBusy === "up"}
+              onClick={() => void sendPtz("up")}
+            >
+              <ArrowUp className="size-5" />
+            </PtzButton>
+            <span />
+            <PtzButton
+              label="Pan left"
+              disabled={!session || ptzBusy !== null}
+              active={ptzBusy === "left"}
+              onClick={() => void sendPtz("left")}
+            >
+              <MoveLeft className="size-5" />
+            </PtzButton>
+            <div className="flex size-10 items-center justify-center rounded-md border border-dashed border-border text-[10px] text-muted-foreground">
+              PTZ
+            </div>
+            <PtzButton
+              label="Pan right"
+              disabled={!session || ptzBusy !== null}
+              active={ptzBusy === "right"}
+              onClick={() => void sendPtz("right")}
+            >
+              <MoveRight className="size-5" />
+            </PtzButton>
+            <span />
+            <PtzButton
+              label="Tilt down"
+              disabled={!session || ptzBusy !== null}
+              active={ptzBusy === "down"}
+              onClick={() => void sendPtz("down")}
+            >
+              <ArrowDown className="size-5" />
+            </PtzButton>
+            <span />
+          </div>
+        </div>
+        {ptzMessage && (
+          <p className="mt-3 text-xs text-emerald-600">{ptzMessage}</p>
+        )}
+        {ptzError && <p className="mt-3 text-xs text-destructive">{ptzError}</p>}
+      </section>
+
       {camera && (
         <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <div className="rounded-xl border border-border bg-card p-4">
@@ -220,5 +336,32 @@ export default function CameraLiveViewerPage() {
         </section>
       )}
     </div>
+  )
+}
+
+function PtzButton({
+  label,
+  disabled,
+  active,
+  onClick,
+  children,
+}: {
+  label: string
+  disabled: boolean
+  active: boolean
+  onClick: () => void
+  children: ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      title={label}
+      aria-label={label}
+      disabled={disabled}
+      onClick={onClick}
+      className="flex size-10 items-center justify-center rounded-md border border-border transition hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
+    >
+      {active ? <Loader2 className="size-4 animate-spin" /> : children}
+    </button>
   )
 }

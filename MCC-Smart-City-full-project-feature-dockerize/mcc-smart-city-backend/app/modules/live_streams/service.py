@@ -22,6 +22,8 @@ from app.modules.cameras import credential_vault
 from app.modules.cameras import repository as camera_repository
 from app.modules.live_streams.schemas import (
     CameraGatewayHealthRead,
+    CameraPTZRequest,
+    CameraPTZResponse,
     GatewayStatusRead,
     GatewayCameraConfigRead,
     GatewayCameraRegistryResponse,
@@ -47,6 +49,10 @@ class StreamNotConfiguredError(LiveStreamError):
 
 
 class StreamTokenError(LiveStreamError):
+    pass
+
+
+class PTZControlError(LiveStreamError):
     pass
 
 
@@ -356,6 +362,65 @@ def camera_gateway_health() -> CameraGatewayHealthRead:
     ):
         return unavailable
 
+
+def send_camera_ptz(
+    db: Session,
+    camera_identifier: str,
+    payload: CameraPTZRequest,
+) -> CameraPTZResponse:
+    camera = camera_repository.get_by_identifier(db, camera_identifier)
+    if camera is None:
+        raise LookupError("Camera not found.")
+    if not camera.is_active or camera.status == "retired":
+        raise PTZControlError("Camera is not active.")
+    if camera.stream_status == "disabled":
+        raise PTZControlError("Camera stream is disabled.")
+    if not _is_v380_camera(camera):
+        raise PTZControlError("PTZ control is available only for V380 cameras.")
+
+    control_url = os.getenv(
+        "CAMERA_GATEWAY_CONTROL_URL",
+        "http://camera-gateway:8090",
+    ).rstrip("/")
+    shared_key = os.getenv("CAMERA_GATEWAY_SHARED_KEY", "").strip()
+    if not shared_key:
+        raise GatewayUnavailableError("Camera gateway control is unavailable.")
+
+    body = json.dumps({
+        "direction": payload.direction.value,
+        "head": payload.head.value,
+    }).encode("utf-8")
+    request = Request(
+        f"{control_url}/v1/cameras/"
+        f"{quote(camera.camera_identifier, safe='')}/ptz",
+        data=body,
+        headers={
+            "X-Camera-Gateway-Key": shared_key,
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        },
+        method="POST",
+    )
+
+    try:
+        with urlopen(request, timeout=3.0) as response:
+            result = json.loads(response.read().decode("utf-8"))
+        return CameraPTZResponse(**result)
+    except HTTPError as exc:
+        detail = "The camera is not ready for PTZ control."
+        try:
+            error_payload = json.loads(exc.read().decode("utf-8"))
+            if isinstance(error_payload.get("detail"), str):
+                detail = error_payload["detail"]
+        except (TypeError, ValueError, json.JSONDecodeError):
+            pass
+        if exc.code in {404, 409}:
+            raise PTZControlError(detail) from exc
+        raise GatewayUnavailableError("Camera gateway control failed.") from exc
+    except (URLError, TimeoutError, OSError) as exc:
+        raise GatewayUnavailableError("Camera gateway control is unavailable.") from exc
+    except (TypeError, ValueError, json.JSONDecodeError) as exc:
+        raise GatewayUnavailableError("Camera gateway returned an invalid response.") from exc
 
 def _path_states() -> tuple[bool, dict[str, dict[str, Any]]]:
     try:

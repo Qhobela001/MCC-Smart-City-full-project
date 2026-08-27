@@ -7,6 +7,7 @@ import socket
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, Callable
+from urllib.parse import unquote
 
 from macrovideo.protocol.legacy_lan_login import perform_legacy_lan_login
 
@@ -61,7 +62,10 @@ class _ControlHandler(BaseHTTPRequestHandler):
         self._write_json(200, payload)
 
     def do_POST(self) -> None:
-        if self.path != "/v1/test-connection":
+        is_test = self.path == "/v1/test-connection"
+        ptz_prefix = "/v1/cameras/"
+        is_ptz = self.path.startswith(ptz_prefix) and self.path.endswith("/ptz")
+        if not is_test and not is_ptz:
             self._write_json(404, {"detail": "Not found."})
             return
 
@@ -80,12 +84,50 @@ class _ControlHandler(BaseHTTPRequestHandler):
 
         try:
             payload = json.loads(self.rfile.read(content_length).decode("utf-8"))
+            if not isinstance(payload, dict):
+                raise TypeError
+        except (TypeError, ValueError, json.JSONDecodeError):
+            self._write_json(400, {"detail": "Invalid JSON request."})
+            return
+
+        if is_ptz:
+            identifier = unquote(self.path[len(ptz_prefix):-len("/ptz")]).strip()
+            direction = str(payload.get("direction") or "").strip().lower()
+            head = str(payload.get("head") or "main").strip().lower()
+            if (not identifier or direction not in {"up", "down", "left", "right"}
+                    or head not in {"main", "right", "left"}):
+                self._write_json(400, {"detail": "Invalid PTZ request."})
+                return
+
+            provider = getattr(self.server, "ptz_provider", None)
+            if provider is None:
+                self._write_json(503, {"detail": "PTZ control is unavailable."})
+                return
+            try:
+                result = provider(identifier, direction, head)
+            except LookupError:
+                self._write_json(404, {"detail": "Camera worker was not found."})
+                return
+            except RuntimeError as exc:
+                self._write_json(409, {"detail": str(exc)})
+                return
+            except OSError:
+                self._write_json(502, {"detail": "The camera rejected the PTZ transport."})
+                return
+            except Exception:
+                self._write_json(500, {"detail": "The gateway could not send PTZ control."})
+                return
+
+            self._write_json(200, result)
+            return
+
+        try:
             host = str(payload["host"]).strip()
             port = int(payload.get("port") or 8800)
             device_id = int(payload["device_id"])
             username = str(payload["username"]).strip()
             password = str(payload["password"])
-        except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+        except (KeyError, TypeError, ValueError):
             self._write_json(400, {"detail": "Invalid V380 test request."})
             return
 
@@ -174,12 +216,14 @@ class CameraGatewayControlServer:
         self,
         *,
         health_provider: Callable[[], dict[str, Any]] | None = None,
+        ptz_provider: Callable[[str, str, str], dict[str, Any]] | None = None,
     ) -> None:
         host = os.getenv("CAMERA_GATEWAY_CONTROL_HOST", "0.0.0.0").strip()
         port = int(os.getenv("CAMERA_GATEWAY_CONTROL_PORT", "8090"))
         self.address = (host, port)
         self.server = ThreadingHTTPServer(self.address, _ControlHandler)
         self.server.health_provider = health_provider  # type: ignore[attr-defined]
+        self.server.ptz_provider = ptz_provider  # type: ignore[attr-defined]
         self.server.daemon_threads = True
         self.thread = threading.Thread(
             target=self.server.serve_forever,

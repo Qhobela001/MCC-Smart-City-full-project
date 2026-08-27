@@ -8,6 +8,8 @@ from app.core.deps import get_db, require_permission
 from app.modules.live_streams import service
 from app.modules.live_streams.schemas import (
     CameraGatewayHealthRead,
+    CameraPTZRequest,
+    CameraPTZResponse,
     GatewayStatusRead,
     GatewayCameraRegistryResponse,
     LiveCameraRead,
@@ -207,5 +209,35 @@ def create_live_stream_session(
     except service.StreamTokenError as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        ) from exc
+
+
+@router.post(
+    "/cameras/{camera_identifier}/ptz",
+    response_model=CameraPTZResponse,
+)
+def control_camera_ptz(
+    camera_identifier: str,
+    payload: CameraPTZRequest,
+    db: Session = Depends(get_db),
+    actor: User = Depends(require_permission("cameras.manage")),
+) -> CameraPTZResponse:
+    del actor
+    try:
+        return service.send_camera_ptz(db, camera_identifier, payload)
+    except LookupError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        ) from exc
+    except service.PTZControlError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(exc),
+        ) from exc
+    except service.GatewayUnavailableError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=str(exc),
         ) from exc

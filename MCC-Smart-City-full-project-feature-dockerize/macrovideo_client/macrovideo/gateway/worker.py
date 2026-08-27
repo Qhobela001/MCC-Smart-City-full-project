@@ -19,6 +19,7 @@ from macrovideo.protocol.legacy_live_client import (
     LegacyV2LiveClient,
 )
 from macrovideo.protocol.legacy_live_stream import LegacyLiveSession
+from macrovideo.protocol.ptz import PTZDirection, PTZHead
 
 
 class CameraWorker(threading.Thread):
@@ -87,6 +88,25 @@ class CameraWorker(threading.Thread):
     ) -> None:
         with self._resource_lock:
             self._active_client = client
+
+    def send_ptz(
+        self,
+        direction: PTZDirection | str,
+        head: PTZHead | str = PTZHead.main,
+    ) -> None:
+        """Send a movement nudge through this worker's live connection."""
+        if self.stop_event.is_set():
+            raise RuntimeError("Camera worker is stopping.")
+        with self._resource_lock:
+            client = self._active_client
+        if client is None:
+            raise RuntimeError("Camera stream is not connected.")
+        client.send_ptz(direction, head)
+        print(
+            f"[WORKER:{self.config.camera_identifier}] "
+            f"PTZ {PTZDirection(direction).value} sent to {PTZHead(head).value} head.",
+            flush=True,
+        )
 
     def _set_active_publisher(
         self,

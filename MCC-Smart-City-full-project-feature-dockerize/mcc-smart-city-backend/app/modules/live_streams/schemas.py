@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
@@ -86,6 +87,32 @@ class LiveStreamSessionResponse(BaseModel):
     whep_url: str
     token: str
     expires_at: datetime
+
+
+class PTZDirection(StrEnum):
+    up = "up"
+    down = "down"
+    left = "left"
+    right = "right"
+
+
+class PTZHead(StrEnum):
+    main = "main"
+    right = "right"
+    left = "left"
+
+
+class CameraPTZRequest(BaseModel):
+    direction: PTZDirection
+    head: PTZHead = PTZHead.main
+
+
+class CameraPTZResponse(BaseModel):
+    success: bool
+    camera_identifier: str
+    direction: PTZDirection
+    head: PTZHead
+    message: str
 
 
 class SyncFailure(BaseModel):
