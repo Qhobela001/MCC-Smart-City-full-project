@@ -12,6 +12,11 @@ services:
       LIVE_STREAM_PUBLISH_USERNAME: ${LIVE_STREAM_PUBLISH_USERNAME}
       LIVE_STREAM_PUBLISH_PASSWORD: ${LIVE_STREAM_PUBLISH_PASSWORD}
 
+      # Stage AI-0: internal machine authentication for detection ingestion.
+      # The AI worker must never reuse a dashboard user's JWT.
+      AI_WORKER_SHARED_KEY: ${AI_WORKER_SHARED_KEY:-}
+      AI_INGEST_ACTOR_EMAIL: ${AI_INGEST_ACTOR_EMAIL:-admin@mcc.org.ls}
+
       # Stage 4: one stable server-side key encrypts all camera passwords at rest.
       # Keep this value stable across restarts/backups; never expose it to frontend.
       CAMERA_CREDENTIAL_MASTER_KEY: ${CAMERA_CREDENTIAL_MASTER_KEY:-}

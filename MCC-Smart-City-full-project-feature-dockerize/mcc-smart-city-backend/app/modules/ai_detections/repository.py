@@ -76,6 +76,8 @@ def create_detection(
 def create_detection_batch(
     db: Session,
     payloads: list[AIDetectionCreate],
+    *,
+    commit: bool = True,
 ) -> list[AIDetection]:
     detections: list[AIDetection] = []
 
@@ -91,15 +93,22 @@ def create_detection_batch(
             db.add(detection)
             detections.append(detection)
 
-        db.commit()
+        if commit:
+            db.commit()
 
-        for detection in detections:
-            db.refresh(detection)
+            for detection in detections:
+                db.refresh(detection)
+        else:
+            # The caller owns the transaction. Flush so incident-engine
+            # processing can safely use generated detection IDs and so all
+            # detections, incidents and alerts can still commit atomically.
+            db.flush()
 
         return detections
 
     except Exception:
-        db.rollback()
+        if commit:
+            db.rollback()
         raise
 
 

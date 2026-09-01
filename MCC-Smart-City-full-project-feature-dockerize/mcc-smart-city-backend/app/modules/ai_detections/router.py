@@ -21,6 +21,7 @@ from app.modules.ai_detections.models import (
     DetectionSource,
     DetectionType,
 )
+from app.modules.ai_detections.machine_auth import require_ai_worker
 from app.modules.ai_detections.schemas import (
     AIDetectionBatchCreate,
     AIDetectionBatchResponse,
@@ -121,6 +122,31 @@ def create_detection_batch(
             )
         ),
 ) -> AIDetectionBatchResponse:
+    return service.create_detection_batch(
+        db,
+        payload,
+        actor=actor,
+    )
+
+
+@router.post(
+    "/ingest/batch",
+    response_model=AIDetectionBatchResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Ingest an authenticated AI-worker detection batch",
+)
+def ingest_detection_batch(
+        payload: AIDetectionBatchCreate,
+        db: Session = Depends(get_db),
+        actor: User = Depends(require_ai_worker),
+) -> AIDetectionBatchResponse:
+    """Machine-to-machine ingestion for the future isolated AI worker.
+
+    Human CRUD endpoints retain JWT/RBAC protection. This endpoint accepts
+    only the internal AI worker shared key and attributes resulting incident
+    and activity audit records to the configured active ingestion actor.
+    """
+
     return service.create_detection_batch(
         db,
         payload,
