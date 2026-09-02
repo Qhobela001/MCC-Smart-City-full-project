@@ -80,3 +80,32 @@ services:
         condition: service_started
     networks:
       - mcc-network
+
+  # Stage AI-1 is opt-in and one-shot. It cannot start during normal `up`.
+  # Invoke it explicitly with `--profile ai-test run --rm ai-worker ...`.
+  ai-worker:
+    profiles: ["ai-test"]
+    build:
+      context: ./ai_worker
+      dockerfile: Dockerfile
+    environment:
+      AI_BACKEND_URL: http://backend:8000/api/v1/ai-detections/ingest/batch
+      AI_WORKER_SHARED_KEY: ${AI_WORKER_SHARED_KEY:-}
+      AI_MODEL_PATH: /models/mcc_detector_v1.pt
+      AI_MODEL_SHA256: ${AI_MODEL_SHA256:-845026048d3bb44831b069cbc36e189bb0fc0bbcff4f4445b8fcab382359d9af}
+      AI_MODEL_NAME: ${AI_MODEL_NAME:-mcc_detector_v1}
+      AI_MODEL_VERSION: ${AI_MODEL_VERSION:-v1}
+      AI_CONFIDENCE: ${AI_CONFIDENCE:-0.25}
+      AI_IMAGE_SIZE: ${AI_IMAGE_SIZE:-640}
+      AI_VIDEO_SAMPLE_SECONDS: ${AI_VIDEO_SAMPLE_SECONDS:-1.0}
+      AI_REQUEST_ATTEMPTS: ${AI_REQUEST_ATTEMPTS:-3}
+      AI_HEALTH_PATH: /output/health.json
+    volumes:
+      - ${AI_MODEL_PATH:-./ai_worker/model_weights/mcc_detector_v1.pt}:/models/mcc_detector_v1.pt:ro
+      - ./ai_worker/input:/input:ro
+      - ./ai_worker/output:/output
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - mcc-network
