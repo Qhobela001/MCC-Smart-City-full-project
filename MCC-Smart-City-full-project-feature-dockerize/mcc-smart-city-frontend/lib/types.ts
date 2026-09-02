@@ -188,6 +188,37 @@ export type Evidence = {
   download_url: string
 }
 
+export type AIDetectionReviewStatus = "unreviewed" | "confirmed" | "rejected"
+
+export type AIDetection = {
+  id: number
+  detection_uuid: string
+  detection_type: IncidentType
+  class_name: string
+  confidence: number
+  detected_at: string
+  source_type: "camera" | "uploaded_image" | "uploaded_video" | "test"
+  camera_identifier?: string | null
+  location_name?: string | null
+  latitude?: number | null
+  longitude?: number | null
+  snapshot_path?: string | null
+  clip_path?: string | null
+  attributes: Record<string, unknown>
+  incident_id?: number | null
+  review_status: AIDetectionReviewStatus
+  reviewed_at?: string | null
+  is_test: boolean
+}
+
+export type AIDetectionListResponse = {
+  items: AIDetection[]
+  total: number
+  page: number
+  page_size: number
+  pages: number
+}
+
 
 export type AlertType =
   | "incident_created"

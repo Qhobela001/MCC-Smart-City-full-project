@@ -22,6 +22,7 @@ from app.modules.incidents.models import (
 )
 from app.modules.incidents.service import generate_incident_number
 from app.modules.users.models import User
+from app.core.deps import user_has_permission
 
 
 @dataclass
@@ -171,6 +172,43 @@ def process_detection(
 
         return IncidentEngineResult(
             decision="skipped_test",
+        )
+
+    # A qualified production event with completed evidence must be reviewed
+    # by an authorised MCC operator. It must never bypass the review queue.
+    attributes = detection.attributes or {}
+    if (
+        rules.is_production_camera_detection(detection)
+        and detection.camera_identifier
+        and attributes.get("qualification")
+        and attributes.get("evidence")
+    ):
+        _set_engine_metadata(
+            detection,
+            decision="awaiting_human_review",
+            notes="Qualified production event is waiting for operator review.",
+        )
+        db.add(detection)
+        recipients = [
+            user for user in alert_repository.active_superadmins(db)
+            if user_has_permission(user, "ai_detections.review")
+        ]
+        for recipient in recipients:
+            alert_repository.create(db, Alert(
+                recipient_user_id=recipient.id,
+                recipient_department_id=recipient.department_id,
+                incident_id=None,
+                alert_type=AlertType.system,
+                severity=AlertSeverity.high,
+                title=f"AI event awaiting review: {detection.detection_type.value.replace('_', ' ').title()}",
+                message=(f"{detection.camera_identifier or 'Unknown camera'} produced a qualified "
+                         f"event at {detection.location_name or 'an unassigned location'}."),
+                action_url=f"/ai-review?detection={detection.id}",
+            ))
+        db.flush()
+        return IncidentEngineResult(
+            decision="awaiting_human_review",
+            alerts_created=len(recipients),
         )
 
     # Automatic incident generation currently accepts

@@ -128,6 +128,7 @@ class EvidenceRecorder:
         max_storage_bytes: int = 512 * 1024 * 1024,
         encode_jpeg: Callable[[object, dict | None], bytes] = default_encode_jpeg,
         write_clip: Callable[[Path, list[EncodedFrame], float], None] = default_write_clip,
+        is_test: bool = True,
     ) -> None:
         self.root = root.resolve()
         self.camera_identifier = _safe_component(camera_identifier)
@@ -138,6 +139,7 @@ class EvidenceRecorder:
         self.max_storage_bytes = max_storage_bytes
         self.encode_jpeg = encode_jpeg
         self.write_clip = write_clip
+        self.is_test = is_test
         self.buffer: deque[EncodedFrame] = deque()
         self.pending: list[PendingEvidence] = []
         self.last_sample_at: datetime | None = None
@@ -170,7 +172,8 @@ class EvidenceRecorder:
         }, sort_keys=True)
         event_id = str(uuid.uuid5(uuid.NAMESPACE_URL, identity))
         day = captured_at.astimezone(timezone.utc).strftime("%Y/%m/%d")
-        directory = self.root / "test" / self.camera_identifier / day / event_id
+        namespace = "test" if self.is_test else "operational"
+        directory = self.root / namespace / self.camera_identifier / day / event_id
         directory.resolve().relative_to(self.root)
         snapshot = directory / "snapshot.jpg"
         _atomic_write(snapshot, self.encode_jpeg(frame, detection.get("bbox")))
@@ -217,8 +220,8 @@ class EvidenceRecorder:
         relative_clip = clip.relative_to(self.root).as_posix()
         metadata = {
             "event_id": pending.event_id,
-            "stage": "AI-4",
-            "is_test": True,
+            "stage": "AI-5" if not self.is_test else "AI-4",
+            "is_test": self.is_test,
             "camera_identifier": self.camera_identifier,
             "captured_at": pending.event_at.isoformat(),
             "pre_seconds": self.pre_seconds,

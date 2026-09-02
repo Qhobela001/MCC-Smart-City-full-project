@@ -75,6 +75,7 @@ def build_live_detection(
     snapshot_path: str | None = None,
     clip_path: str | None = None,
     evidence_metadata: dict | None = None,
+    is_test: bool = True,
 ) -> dict:
     qualification = detection.get("qualification")
     return {
@@ -93,7 +94,7 @@ def build_live_detection(
         "class_name": detection["class_name"],
         "confidence": round(float(detection["confidence"]), 6),
         "detected_at": captured_at.astimezone(timezone.utc).isoformat(),
-        "source_type": "test",
+        "source_type": "test" if is_test else "camera",
         "camera_identifier": camera_identifier,
         "stream_identifier": gateway_path,
         "model_name": model_name,
@@ -109,15 +110,15 @@ def build_live_detection(
             "gateway_path": gateway_path,
             "frame_sequence": frame_sequence,
             "model_sha256": model_sha256,
-            "stage": "AI-4" if evidence_metadata else (
+            "stage": ("AI-4" if is_test else "AI-5") if evidence_metadata else (
                 "AI-3" if qualification else "AI-2"
             ),
-            "observation_mode": True,
+            "observation_mode": is_test,
             "qualification": qualification,
             "evidence": evidence_metadata,
         },
         # AI-2 remains observation-only regardless of environment settings.
-        "is_test": True,
+        "is_test": is_test,
     }
 
 

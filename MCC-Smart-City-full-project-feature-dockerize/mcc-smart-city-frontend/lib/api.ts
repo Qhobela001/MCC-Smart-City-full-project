@@ -127,3 +127,12 @@ export async function apiDownload(
   anchor.remove()
   URL.revokeObjectURL(objectUrl)
 }
+
+export async function apiObjectUrl(path: string): Promise<string> {
+  const headers = new Headers()
+  const token = accessToken()
+  if (token) headers.set("Authorization", `Bearer ${token}`)
+  const response = await fetch(`${API_URL}${path}`, { headers, cache: "no-store" })
+  if (!response.ok) throw new ApiError(await errorMessage(response), response.status)
+  return URL.createObjectURL(await response.blob())
+}

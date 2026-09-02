@@ -136,6 +136,18 @@ def get_detection_by_uuid(
     )
 
 
+def lock_detection(
+    db: Session,
+    detection_id: int,
+) -> AIDetection | None:
+    return (
+        db.query(AIDetection)
+        .filter(AIDetection.id == detection_id)
+        .with_for_update(of=AIDetection)
+        .first()
+    )
+
+
 def list_detections(
     db: Session,
     *,
@@ -237,8 +249,5 @@ def review_detection(
     detection.review_status = review_status
     detection.reviewed_by_id = reviewed_by_id
     detection.reviewed_at = reviewed_at
-
-    db.commit()
-    db.refresh(detection)
 
     return detection

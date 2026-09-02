@@ -16,6 +16,7 @@ services:
       # The AI worker must never reuse a dashboard user's JWT.
       AI_WORKER_SHARED_KEY: ${AI_WORKER_SHARED_KEY:-}
       AI_INGEST_ACTOR_EMAIL: ${AI_INGEST_ACTOR_EMAIL:-admin@mcc.org.ls}
+      AI_EVIDENCE_STAGING_DIR: /ai-evidence
 
       # Stage 4: one stable server-side key encrypts all camera passwords at rest.
       # Keep this value stable across restarts/backups; never expose it to frontend.
@@ -28,6 +29,8 @@ services:
       # credential_reference when they require different credentials.
       V380_DEFAULT_USERNAME: ${V380_DEFAULT_USERNAME:-admin}
       V380_DEFAULT_PASSWORD: ${V380_DEFAULT_PASSWORD:-}
+    volumes:
+      - ./ai_worker/evidence:/ai-evidence:ro
     depends_on:
       - mediamtx
     networks:
@@ -110,8 +113,9 @@ services:
     networks:
       - mcc-network
 
-  # Stage AI-2: explicitly selected, observation-only live stream analysis.
-  # This profile is never enabled by ordinary application startup.
+  # Stage AI-2 through AI-5 live worker. It remains observation-only by
+  # default and is never enabled by ordinary application startup. AI-5
+  # operational review candidates require an explicit one-run override.
   ai-live-observer:
     profiles: ["ai-live-test"]
     build:
@@ -151,6 +155,7 @@ services:
       AI_EVIDENCE_SAMPLE_SECONDS: ${AI_EVIDENCE_SAMPLE_SECONDS:-0.5}
       AI_EVIDENCE_RETENTION_HOURS: ${AI_EVIDENCE_RETENTION_HOURS:-24.0}
       AI_EVIDENCE_MAX_STORAGE_MB: ${AI_EVIDENCE_MAX_STORAGE_MB:-512}
+      AI_OPERATIONAL_MODE: ${AI_OPERATIONAL_MODE:-false}
     volumes:
       - ${AI_MODEL_PATH:-./ai_worker/model_weights/mcc_detector_v1.pt}:/models/mcc_detector_v1.pt:ro
       - ./ai_worker/output:/output

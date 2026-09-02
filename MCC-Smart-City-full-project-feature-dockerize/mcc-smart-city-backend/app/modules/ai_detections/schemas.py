@@ -14,6 +14,7 @@ from app.modules.ai_detections.models import (
     DetectionType,
 )
 from app.modules.gis.models import LocationType
+from app.modules.incidents.models import IncidentPriority
 
 
 class AIDetectionGISLocationSummary(BaseModel):
@@ -134,6 +135,15 @@ class AIDetectionBatchCreate(BaseModel):
 
 class AIDetectionReview(BaseModel):
     review_status: DetectionReviewStatus
+    notes: str = Field(min_length=3, max_length=2000)
+    department_id: int | None = Field(default=None, ge=1)
+    priority: IncidentPriority | None = None
+
+    @model_validator(mode="after")
+    def validate_review_decision(self):
+        if self.review_status == DetectionReviewStatus.unreviewed:
+            raise ValueError("A completed review must confirm or reject the detection.")
+        return self
 
 
 class ReviewerSummary(BaseModel):

@@ -86,6 +86,7 @@ class LiveConfig:
     evidence_sample_seconds: float = 0.5
     evidence_retention_hours: float = 24.0
     evidence_max_storage_bytes: int = 512 * 1024 * 1024
+    operational_mode: bool = False
 
     @classmethod
     def from_env(cls) -> "LiveConfig":
@@ -162,4 +163,7 @@ class LiveConfig:
             evidence_sample_seconds=evidence_sample,
             evidence_retention_hours=evidence_retention,
             evidence_max_storage_bytes=evidence_max_mb * 1024 * 1024,
+            operational_mode=os.getenv(
+                "AI_OPERATIONAL_MODE", "false"
+            ).strip().lower() in {"1", "true", "yes", "on"},
         )

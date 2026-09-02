@@ -6,6 +6,7 @@ from fastapi import (
     Query,
     status,
 )
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.core.deps import (
@@ -232,6 +233,9 @@ def review_detection(
             review_status=(
                 payload.review_status
             ),
+            notes=payload.notes,
+            department_id=payload.department_id,
+            priority=payload.priority,
             actor=actor,
         )
     )
@@ -239,3 +243,18 @@ def review_detection(
     return service.to_read(
         detection
     )
+
+
+@router.get("/{detection_id}/staged-evidence/{kind}")
+def preview_staged_evidence(
+        detection_id: int,
+        kind: str,
+        db: Session = Depends(get_db),
+        actor: User = Depends(require_permission("ai_detections.view")),
+):
+    detection = service.get_detection_or_404(db, detection_id)
+    path, media_type, filename = service.get_staged_evidence_file(
+        detection,
+        kind=kind,
+    )
+    return FileResponse(path=path, media_type=media_type, filename=filename)

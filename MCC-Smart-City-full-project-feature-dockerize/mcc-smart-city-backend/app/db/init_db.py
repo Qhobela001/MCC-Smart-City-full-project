@@ -154,6 +154,10 @@ PERMISSIONS = [
         "Review AI Detections",
         "ai_detections.review",
     ),
+    (
+        "Promote AI Detections",
+        "ai_detections.promote",
+    ),
 
     ("View Reports", "reports.view"),
 ]
@@ -217,11 +221,19 @@ NAVIGATION_ITEMS = [
         "incidents.view",
     ),
     (
+        "AI Review Queue",
+        "/ai-review",
+        "ScanSearch",
+        "Operations",
+        3,
+        "ai_detections.view",
+    ),
+    (
         "Assignments",
         "/assignments",
         "ClipboardCheck",
         "Operations",
-        3,
+        4,
         "incidents.view",
     ),
     (
@@ -229,7 +241,7 @@ NAVIGATION_ITEMS = [
         "/city-map",
         "MapPin",
         "Operations",
-        4,
+        5,
         "incidents.view",
     ),
     (
@@ -237,7 +249,7 @@ NAVIGATION_ITEMS = [
         "/devices",
         "Network",
         "Operations",
-        5,
+        6,
         "cameras.view",
     ),
     (

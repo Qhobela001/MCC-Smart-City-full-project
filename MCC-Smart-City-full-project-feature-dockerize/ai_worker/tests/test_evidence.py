@@ -92,6 +92,33 @@ class EvidenceRecorderTests(unittest.TestCase):
         self.assertEqual(item["snapshot_path"], "test/camera/event/snapshot.jpg")
         self.assertNotIn("incident_id", item)
 
+    def test_operational_bundle_and_payload_are_explicitly_non_test(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            recorder = EvidenceRecorder(
+                root, "MCC-CAM-002", pre_seconds=1, post_seconds=1,
+                sample_seconds=1, encode_jpeg=fake_encode,
+                write_clip=fake_clip, is_test=False,
+            )
+            start = datetime(2026, 9, 2, tzinfo=timezone.utc)
+            recorder.add_frame("pre", start)
+            recorder.start(qualified_detection(), "event", start, 1)
+            recorder.add_frame("post", start + timedelta(seconds=1))
+            bundle = recorder.complete_ready(start + timedelta(seconds=1))[0]
+            self.assertTrue(bundle.snapshot_path.startswith("operational/"))
+            self.assertFalse(bundle.metadata["is_test"])
+            item = build_live_detection(
+                detection=bundle.detection, captured_at=bundle.captured_at,
+                camera_identifier="MCC-CAM-002", gateway_path="mcc-cam-002",
+                frame_sequence=1, model_name="mcc_detector_v1",
+                model_version="v1", model_sha256="sha",
+                snapshot_path=bundle.snapshot_path, clip_path=bundle.clip_path,
+                evidence_metadata=bundle.metadata, is_test=False,
+            )
+            self.assertFalse(item["is_test"])
+            self.assertEqual(item["source_type"], "camera")
+            self.assertEqual(item["attributes"]["stage"], "AI-5")
+
     def test_camera_identifier_cannot_escape_evidence_root(self):
         with tempfile.TemporaryDirectory() as directory:
             with self.assertRaises(EvidenceCaptureError):

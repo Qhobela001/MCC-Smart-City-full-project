@@ -151,14 +151,15 @@ def run_live_observer(
             sample_seconds=live.evidence_sample_seconds,
             retention_hours=live.evidence_retention_hours,
             max_storage_bytes=live.evidence_max_storage_bytes,
+            is_test=not live.operational_mode,
         )
         if live.evidence_enabled and qualifier is not None else None
     )
     counters = {
         "status": "starting",
-        "stage": "AI-4" if recorder else ("AI-3" if qualifier else "AI-2"),
-        "observation_mode": True,
-        "is_test": True,
+        "stage": ("AI-5" if live.operational_mode else "AI-4") if recorder else ("AI-3" if qualifier else "AI-2"),
+        "observation_mode": not live.operational_mode,
+        "is_test": not live.operational_mode,
         "camera_identifier": live.camera_identifier,
         "model_sha256": model.sha256,
         "started_at": started_at.isoformat(),
@@ -203,6 +204,7 @@ def run_live_observer(
                 snapshot_path=item.snapshot_path,
                 clip_path=item.clip_path,
                 evidence_metadata=item.metadata,
+                is_test=not live.operational_mode,
             )
             for item in bundles
         ]
@@ -314,6 +316,7 @@ def run_live_observer(
                         model_name=worker.model_name,
                         model_version=worker.model_version,
                         model_sha256=model.sha256,
+                        is_test=not live.operational_mode,
                     )
                     for item in selected
                 ]
