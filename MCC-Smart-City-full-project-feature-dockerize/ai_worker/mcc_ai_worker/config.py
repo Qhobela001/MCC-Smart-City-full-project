@@ -73,6 +73,12 @@ class LiveConfig:
     reconnect_max_seconds: float
     token_refresh_seconds: float
     health_path: Path
+    qualification_enabled: bool = False
+    qualification_audit_path: Path = Path("/output/qualification-audit.jsonl")
+    qualification_min_hits: int = 3
+    qualification_max_gap_seconds: float = 8.0
+    qualification_context_window_seconds: float = 10.0
+    qualification_cooldown_seconds: float = 60.0
 
     @classmethod
     def from_env(cls) -> "LiveConfig":
@@ -91,6 +97,17 @@ class LiveConfig:
         if token_refresh < 5:
             raise ValueError("AI_LIVE_TOKEN_REFRESH_SECONDS must be at least 5.")
 
+        min_hits = int(os.getenv("AI_QUALIFICATION_MIN_HITS", "3"))
+        max_gap = float(os.getenv("AI_QUALIFICATION_MAX_GAP_SECONDS", "8.0"))
+        context_window = float(os.getenv(
+            "AI_QUALIFICATION_CONTEXT_WINDOW_SECONDS", "10.0"
+        ))
+        cooldown = float(os.getenv("AI_QUALIFICATION_COOLDOWN_SECONDS", "60.0"))
+        if min_hits < 2:
+            raise ValueError("AI_QUALIFICATION_MIN_HITS must be at least 2.")
+        if min(max_gap, context_window, cooldown) <= 0:
+            raise ValueError("AI qualification time settings must be positive.")
+
         return cls(
             camera_identifier=camera_identifier,
             session_url_template=os.getenv(
@@ -108,4 +125,15 @@ class LiveConfig:
             health_path=Path(
                 os.getenv("AI_LIVE_HEALTH_PATH", "/output/live-health.json")
             ),
+            qualification_enabled=os.getenv(
+                "AI_QUALIFICATION_ENABLED", "false"
+            ).strip().lower() in {"1", "true", "yes", "on"},
+            qualification_audit_path=Path(os.getenv(
+                "AI_QUALIFICATION_AUDIT_PATH",
+                "/output/qualification-audit.jsonl",
+            )),
+            qualification_min_hits=min_hits,
+            qualification_max_gap_seconds=max_gap,
+            qualification_context_window_seconds=context_window,
+            qualification_cooldown_seconds=cooldown,
         )

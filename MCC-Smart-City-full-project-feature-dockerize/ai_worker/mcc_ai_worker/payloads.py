@@ -73,6 +73,7 @@ def build_live_detection(
     model_version: str,
     model_sha256: str,
 ) -> dict:
+    qualification = detection.get("qualification")
     return {
         "detection_uuid": stable_live_detection_uuid(
             camera_identifier=camera_identifier,
@@ -82,7 +83,10 @@ def build_live_detection(
             detection=detection,
             model_sha256=model_sha256,
         ),
-        "detection_type": DETECTION_TYPES[detection["class_name"]],
+        "detection_type": (
+            qualification["event_type"] if qualification
+            else DETECTION_TYPES[detection["class_name"]]
+        ),
         "class_name": detection["class_name"],
         "confidence": round(float(detection["confidence"]), 6),
         "detected_at": captured_at.astimezone(timezone.utc).isoformat(),
@@ -100,8 +104,9 @@ def build_live_detection(
             "gateway_path": gateway_path,
             "frame_sequence": frame_sequence,
             "model_sha256": model_sha256,
-            "stage": "AI-2",
+            "stage": "AI-3" if qualification else "AI-2",
             "observation_mode": True,
+            "qualification": qualification,
         },
         # AI-2 remains observation-only regardless of environment settings.
         "is_test": True,

@@ -30,6 +30,16 @@ class FakeModel:
         }]
 
 
+class ContextModel(FakeModel):
+    def predict(self, frame, confidence, image_size):
+        return super().predict(frame, confidence, image_size) + [{
+            "class_id": 0,
+            "class_name": "person",
+            "confidence": 0.88,
+            "bbox": {"x1": 15.0, "y1": 15.0, "x2": 55.0, "y2": 80.0},
+        }]
+
+
 class FakeClient:
     def __init__(self):
         self.batches = []
@@ -221,6 +231,43 @@ class AIWorkerTests(unittest.TestCase):
             self.assertEqual(result["frames_analyzed"], 1)
             self.assertEqual(result["reconnects"], 1)
             self.assertEqual(result["status"], "stopped")
+
+    def test_live_qualification_ingests_only_persistent_candidate(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            worker = WorkerConfig(
+                backend_url="http://unused", worker_key="key",
+                model_path=root / "model.pt", model_sha256="unused",
+                model_name="mcc_detector_v1", model_version="v1",
+                confidence=0.25, image_size=640, video_sample_seconds=1,
+                request_attempts=1, health_path=root / "file-health.json",
+            )
+            live = LiveConfig(
+                camera_identifier="MCC-CAM-001",
+                session_url_template="http://unused/{camera_identifier}",
+                rtsp_base_url="rtsp://mediamtx:8554", sample_seconds=1,
+                reconnect_min_seconds=0.001, reconnect_max_seconds=0.001,
+                token_refresh_seconds=30, health_path=root / "live-health.json",
+                qualification_enabled=True,
+                qualification_audit_path=root / "qualification.jsonl",
+            )
+            client = FakeClient()
+            result = run_live_observer(
+                worker, live, model=ContextModel(), ingestion=client,
+                sessions=FakeSessions(), capture_factory=lambda _: FakeCapture(),
+                max_frames_analyzed=3, monotonic=StepClock(),
+            )
+            created = [item for batch in client.batches for item in batch]
+            self.assertEqual(result["stage"], "AI-3")
+            self.assertEqual(result["candidates_qualified"], 1)
+            self.assertEqual(result["detections_created"], 1)
+            self.assertEqual(len(created), 1)
+            self.assertTrue(created[0]["is_test"])
+            self.assertEqual(created[0]["attributes"]["stage"], "AI-3")
+            self.assertEqual(
+                created[0]["attributes"]["qualification"]["decision"],
+                "qualified",
+            )
 
 
 if __name__ == "__main__":

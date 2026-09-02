@@ -15,6 +15,7 @@ from .config import LiveConfig, WorkerConfig
 from .ingestion import IngestionClient, IngestionError
 from .model import MCCModel
 from .payloads import build_live_detection
+from .qualification import DEFAULT_RULES, EventQualifier, QualificationRule
 from .runner import write_health
 
 
@@ -122,9 +123,27 @@ def run_live_observer(
     )
     started_mono = monotonic()
     started_at = utcnow()
+    qualifier = (
+        EventQualifier(
+            live.qualification_audit_path,
+            max_gap_seconds=live.qualification_max_gap_seconds,
+            context_window_seconds=live.qualification_context_window_seconds,
+            cooldown_seconds=live.qualification_cooldown_seconds,
+            rules={
+                name: QualificationRule(
+                    rule.event_type,
+                    rule.min_confidence,
+                    live.qualification_min_hits,
+                    rule.context_class,
+                )
+                for name, rule in DEFAULT_RULES.items()
+            },
+        )
+        if live.qualification_enabled else None
+    )
     counters = {
         "status": "starting",
-        "stage": "AI-2",
+        "stage": "AI-3" if qualifier else "AI-2",
         "observation_mode": True,
         "is_test": True,
         "camera_identifier": live.camera_identifier,
@@ -134,6 +153,10 @@ def run_live_observer(
         "frames_analyzed": 0,
         "detections_seen": 0,
         "detections_created": 0,
+        "qualification_enabled": live.qualification_enabled,
+        "candidates_qualified": 0,
+        "candidates_rejected": 0,
+        "detections_ignored": 0,
         "reconnects": 0,
         "consecutive_failures": 0,
         "last_frame_at": None,
@@ -203,6 +226,18 @@ def run_live_observer(
                 raw = model.predict(frame, worker.confidence, worker.image_size)
                 counters["frames_analyzed"] += 1
                 counters["last_inference_at"] = now.isoformat()
+                selected = raw
+                if qualifier is not None:
+                    selected, decisions = qualifier.observe(raw, now, frame_sequence)
+                    counters["candidates_qualified"] += sum(
+                        item["decision"] == "qualified" for item in decisions
+                    )
+                    counters["candidates_rejected"] += sum(
+                        item["decision"] == "rejected" for item in decisions
+                    )
+                    counters["detections_ignored"] += sum(
+                        item["decision"] == "ignored" for item in decisions
+                    )
                 batch = [
                     build_live_detection(
                         detection=item,
@@ -214,13 +249,14 @@ def run_live_observer(
                         model_version=worker.model_version,
                         model_sha256=model.sha256,
                     )
-                    for item in raw
+                    for item in selected
                 ]
                 frame_sequence += 1
-                counters["detections_seen"] += len(batch)
+                counters["detections_seen"] += len(raw)
                 response = ingestion.submit(batch)
                 counters["detections_created"] += int(response.get("created", 0))
-                counters["last_ingestion_at"] = utcnow().isoformat()
+                if batch:
+                    counters["last_ingestion_at"] = utcnow().isoformat()
                 next_sample = monotonic() + live.sample_seconds
                 write_health(live.health_path, _health(counters, status="online"))
 
