@@ -144,9 +144,17 @@ services:
       AI_QUALIFICATION_MAX_GAP_SECONDS: ${AI_QUALIFICATION_MAX_GAP_SECONDS:-8.0}
       AI_QUALIFICATION_CONTEXT_WINDOW_SECONDS: ${AI_QUALIFICATION_CONTEXT_WINDOW_SECONDS:-10.0}
       AI_QUALIFICATION_COOLDOWN_SECONDS: ${AI_QUALIFICATION_COOLDOWN_SECONDS:-60.0}
+      AI_EVIDENCE_ENABLED: ${AI_EVIDENCE_ENABLED:-true}
+      AI_EVIDENCE_ROOT: /evidence
+      AI_EVIDENCE_PRE_SECONDS: ${AI_EVIDENCE_PRE_SECONDS:-6.0}
+      AI_EVIDENCE_POST_SECONDS: ${AI_EVIDENCE_POST_SECONDS:-6.0}
+      AI_EVIDENCE_SAMPLE_SECONDS: ${AI_EVIDENCE_SAMPLE_SECONDS:-0.5}
+      AI_EVIDENCE_RETENTION_HOURS: ${AI_EVIDENCE_RETENTION_HOURS:-24.0}
+      AI_EVIDENCE_MAX_STORAGE_MB: ${AI_EVIDENCE_MAX_STORAGE_MB:-512}
     volumes:
       - ${AI_MODEL_PATH:-./ai_worker/model_weights/mcc_detector_v1.pt}:/models/mcc_detector_v1.pt:ro
       - ./ai_worker/output:/output
+      - ./ai_worker/evidence:/evidence
     healthcheck:
       test: ["CMD", "python", "-m", "mcc_ai_worker.healthcheck", "/output/live-health.json", "30"]
       interval: 15s

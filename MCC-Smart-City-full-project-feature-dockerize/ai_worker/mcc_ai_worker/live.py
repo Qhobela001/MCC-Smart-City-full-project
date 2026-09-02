@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 from typing import Callable, Protocol
 
 from .config import LiveConfig, WorkerConfig
+from .evidence import EvidenceCaptureError, EvidenceRecorder
 from .ingestion import IngestionClient, IngestionError
 from .model import MCCModel
 from .payloads import build_live_detection
@@ -141,9 +142,21 @@ def run_live_observer(
         )
         if live.qualification_enabled else None
     )
+    recorder = (
+        EvidenceRecorder(
+            live.evidence_root,
+            live.camera_identifier,
+            pre_seconds=live.evidence_pre_seconds,
+            post_seconds=live.evidence_post_seconds,
+            sample_seconds=live.evidence_sample_seconds,
+            retention_hours=live.evidence_retention_hours,
+            max_storage_bytes=live.evidence_max_storage_bytes,
+        )
+        if live.evidence_enabled and qualifier is not None else None
+    )
     counters = {
         "status": "starting",
-        "stage": "AI-3" if qualifier else "AI-2",
+        "stage": "AI-4" if recorder else ("AI-3" if qualifier else "AI-2"),
         "observation_mode": True,
         "is_test": True,
         "camera_identifier": live.camera_identifier,
@@ -157,6 +170,11 @@ def run_live_observer(
         "candidates_qualified": 0,
         "candidates_rejected": 0,
         "detections_ignored": 0,
+        "evidence_enabled": recorder is not None,
+        "evidence_started": 0,
+        "evidence_completed": 0,
+        "evidence_failures": 0,
+        "evidence_bytes": 0,
         "reconnects": 0,
         "consecutive_failures": 0,
         "last_frame_at": None,
@@ -168,6 +186,35 @@ def run_live_observer(
     write_health(live.health_path, counters)
     reconnect_delay = live.reconnect_min_seconds
     frame_sequence = 0
+
+    def submit_evidence(bundles: list, gateway_path: str) -> None:
+        if not bundles:
+            return
+        batch = [
+            build_live_detection(
+                detection=item.detection,
+                captured_at=item.captured_at,
+                camera_identifier=live.camera_identifier,
+                gateway_path=gateway_path,
+                frame_sequence=item.frame_sequence,
+                model_name=worker.model_name,
+                model_version=worker.model_version,
+                model_sha256=model.sha256,
+                snapshot_path=item.snapshot_path,
+                clip_path=item.clip_path,
+                evidence_metadata=item.metadata,
+            )
+            for item in bundles
+        ]
+        response = ingestion.submit(batch)
+        counters["detections_created"] += int(response.get("created", 0))
+        counters["evidence_completed"] += len(bundles)
+        counters["evidence_bytes"] += sum(
+            item.metadata["snapshot"]["size_bytes"]
+            + item.metadata["clip"]["size_bytes"]
+            for item in bundles
+        )
+        counters["last_ingestion_at"] = utcnow().isoformat()
 
     def reached_limit() -> bool:
         if max_frames_analyzed is not None:
@@ -218,6 +265,16 @@ def run_live_observer(
                 counters["frames_received"] += 1
                 counters["last_frame_at"] = now.isoformat()
 
+                if recorder is not None:
+                    try:
+                        recorder.add_frame(frame, now)
+                        submit_evidence(
+                            recorder.complete_ready(now), session.gateway_path
+                        )
+                    except (EvidenceCaptureError, OSError, ValueError) as exc:
+                        counters["evidence_failures"] += 1
+                        counters["failure"] = f"Evidence capture failed: {exc}"
+
                 if monotonic() < next_sample:
                     continue
 
@@ -238,6 +295,15 @@ def run_live_observer(
                     counters["detections_ignored"] += sum(
                         item["decision"] == "ignored" for item in decisions
                     )
+                if recorder is not None:
+                    for item in selected:
+                        try:
+                            recorder.start(item, frame, now, frame_sequence)
+                            counters["evidence_started"] += 1
+                        except (EvidenceCaptureError, OSError, ValueError) as exc:
+                            counters["evidence_failures"] += 1
+                            counters["failure"] = f"Evidence capture failed: {exc}"
+                    selected = []
                 batch = [
                     build_live_detection(
                         detection=item,
@@ -290,6 +356,16 @@ def run_live_observer(
             ),
         )
         stop_event.wait(delay)
+
+    if recorder is not None and recorder.pending:
+        try:
+            submit_evidence(
+                recorder.complete_ready(utcnow(), force=True),
+                str(counters["gateway_path"] or ""),
+            )
+        except (EvidenceCaptureError, IngestionError, OSError, ValueError) as exc:
+            counters["evidence_failures"] += 1
+            counters["failure"] = f"Evidence finalization failed: {exc}"
 
     final = _health(
         counters,

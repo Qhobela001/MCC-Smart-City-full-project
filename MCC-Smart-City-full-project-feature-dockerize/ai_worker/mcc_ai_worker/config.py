@@ -79,6 +79,13 @@ class LiveConfig:
     qualification_max_gap_seconds: float = 8.0
     qualification_context_window_seconds: float = 10.0
     qualification_cooldown_seconds: float = 60.0
+    evidence_enabled: bool = False
+    evidence_root: Path = Path("/evidence")
+    evidence_pre_seconds: float = 6.0
+    evidence_post_seconds: float = 6.0
+    evidence_sample_seconds: float = 0.5
+    evidence_retention_hours: float = 24.0
+    evidence_max_storage_bytes: int = 512 * 1024 * 1024
 
     @classmethod
     def from_env(cls) -> "LiveConfig":
@@ -108,6 +115,16 @@ class LiveConfig:
         if min(max_gap, context_window, cooldown) <= 0:
             raise ValueError("AI qualification time settings must be positive.")
 
+        evidence_pre = float(os.getenv("AI_EVIDENCE_PRE_SECONDS", "6.0"))
+        evidence_post = float(os.getenv("AI_EVIDENCE_POST_SECONDS", "6.0"))
+        evidence_sample = float(os.getenv("AI_EVIDENCE_SAMPLE_SECONDS", "0.5"))
+        evidence_retention = float(os.getenv("AI_EVIDENCE_RETENTION_HOURS", "24.0"))
+        evidence_max_mb = int(os.getenv("AI_EVIDENCE_MAX_STORAGE_MB", "512"))
+        if min(evidence_pre, evidence_post, evidence_sample, evidence_retention) <= 0:
+            raise ValueError("AI evidence timing and retention settings must be positive.")
+        if evidence_max_mb < 10:
+            raise ValueError("AI_EVIDENCE_MAX_STORAGE_MB must be at least 10.")
+
         return cls(
             camera_identifier=camera_identifier,
             session_url_template=os.getenv(
@@ -136,4 +153,13 @@ class LiveConfig:
             qualification_max_gap_seconds=max_gap,
             qualification_context_window_seconds=context_window,
             qualification_cooldown_seconds=cooldown,
+            evidence_enabled=os.getenv(
+                "AI_EVIDENCE_ENABLED", "false"
+            ).strip().lower() in {"1", "true", "yes", "on"},
+            evidence_root=Path(os.getenv("AI_EVIDENCE_ROOT", "/evidence")),
+            evidence_pre_seconds=evidence_pre,
+            evidence_post_seconds=evidence_post,
+            evidence_sample_seconds=evidence_sample,
+            evidence_retention_hours=evidence_retention,
+            evidence_max_storage_bytes=evidence_max_mb * 1024 * 1024,
         )

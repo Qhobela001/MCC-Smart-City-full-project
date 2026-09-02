@@ -3,5 +3,7 @@ input/*
 !input/.gitkeep
 output/*
 !output/.gitkeep
+evidence/*
+!evidence/.gitkeep
 __pycache__/
 *.pyc

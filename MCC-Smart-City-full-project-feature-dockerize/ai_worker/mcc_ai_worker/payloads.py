@@ -72,6 +72,9 @@ def build_live_detection(
     model_name: str,
     model_version: str,
     model_sha256: str,
+    snapshot_path: str | None = None,
+    clip_path: str | None = None,
+    evidence_metadata: dict | None = None,
 ) -> dict:
     qualification = detection.get("qualification")
     return {
@@ -96,6 +99,8 @@ def build_live_detection(
         "model_name": model_name,
         "model_version": model_version,
         "object_count": 1,
+        "snapshot_path": snapshot_path,
+        "clip_path": clip_path,
         "attributes": {
             "bbox_xyxy": detection["bbox"],
             "class_id": detection["class_id"],
@@ -104,9 +109,12 @@ def build_live_detection(
             "gateway_path": gateway_path,
             "frame_sequence": frame_sequence,
             "model_sha256": model_sha256,
-            "stage": "AI-3" if qualification else "AI-2",
+            "stage": "AI-4" if evidence_metadata else (
+                "AI-3" if qualification else "AI-2"
+            ),
             "observation_mode": True,
             "qualification": qualification,
+            "evidence": evidence_metadata,
         },
         # AI-2 remains observation-only regardless of environment settings.
         "is_test": True,
