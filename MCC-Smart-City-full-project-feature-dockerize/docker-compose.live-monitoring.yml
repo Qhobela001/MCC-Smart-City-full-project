@@ -109,3 +109,48 @@ services:
         condition: service_healthy
     networks:
       - mcc-network
+
+  # Stage AI-2: explicitly selected, observation-only live stream analysis.
+  # This profile is never enabled by ordinary application startup.
+  ai-live-observer:
+    profiles: ["ai-live-test"]
+    build:
+      context: ./ai_worker
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    stop_grace_period: 20s
+    command: ["--live"]
+    environment:
+      AI_BACKEND_URL: http://backend:8000/api/v1/ai-detections/ingest/batch
+      AI_WORKER_SHARED_KEY: ${AI_WORKER_SHARED_KEY:-}
+      AI_MODEL_PATH: /models/mcc_detector_v1.pt
+      AI_MODEL_SHA256: ${AI_MODEL_SHA256:-845026048d3bb44831b069cbc36e189bb0fc0bbcff4f4445b8fcab382359d9af}
+      AI_MODEL_NAME: ${AI_MODEL_NAME:-mcc_detector_v1}
+      AI_MODEL_VERSION: ${AI_MODEL_VERSION:-v1}
+      AI_CONFIDENCE: ${AI_CONFIDENCE:-0.25}
+      AI_IMAGE_SIZE: ${AI_IMAGE_SIZE:-640}
+      AI_REQUEST_ATTEMPTS: ${AI_REQUEST_ATTEMPTS:-3}
+      AI_LIVE_CAMERA_IDENTIFIER: ${AI_LIVE_CAMERA_IDENTIFIER:-}
+      AI_LIVE_SESSION_URL_TEMPLATE: http://backend:8000/api/v1/live-streams/ai/cameras/{camera_identifier}/session
+      AI_LIVE_RTSP_BASE_URL: rtsp://mediamtx:8554
+      AI_LIVE_SAMPLE_SECONDS: ${AI_LIVE_SAMPLE_SECONDS:-2.0}
+      AI_LIVE_RECONNECT_MIN_SECONDS: ${AI_LIVE_RECONNECT_MIN_SECONDS:-2.0}
+      AI_LIVE_RECONNECT_MAX_SECONDS: ${AI_LIVE_RECONNECT_MAX_SECONDS:-30.0}
+      AI_LIVE_TOKEN_REFRESH_SECONDS: ${AI_LIVE_TOKEN_REFRESH_SECONDS:-30.0}
+      AI_LIVE_HEALTH_PATH: /output/live-health.json
+    volumes:
+      - ${AI_MODEL_PATH:-./ai_worker/model_weights/mcc_detector_v1.pt}:/models/mcc_detector_v1.pt:ro
+      - ./ai_worker/output:/output
+    healthcheck:
+      test: ["CMD", "python", "-m", "mcc_ai_worker.healthcheck", "/output/live-health.json", "30"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 90s
+    depends_on:
+      backend:
+        condition: service_healthy
+      mediamtx:
+        condition: service_started
+    networks:
+      - mcc-network

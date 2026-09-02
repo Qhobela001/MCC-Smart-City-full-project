@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Response, status
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_db, require_permission
+from app.modules.ai_detections.machine_auth import require_ai_worker
 from app.modules.live_streams import service
 from app.modules.live_streams.schemas import (
     CameraGatewayHealthRead,
@@ -185,6 +186,45 @@ def create_live_stream_session(
     db: Session = Depends(get_db),
     actor: User = Depends(require_permission("cameras.view")),
 ) -> LiveStreamSessionResponse:
+    try:
+        return service.create_session(
+            db,
+            camera_identifier,
+            actor=actor,
+        )
+    except LookupError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        ) from exc
+    except service.StreamNotConfiguredError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(exc),
+        ) from exc
+    except service.GatewayUnavailableError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
+    except service.StreamTokenError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        ) from exc
+
+
+@router.post(
+    "/ai/cameras/{camera_identifier}/session",
+    response_model=LiveStreamSessionResponse,
+    include_in_schema=False,
+)
+def create_ai_live_stream_session(
+    camera_identifier: str,
+    db: Session = Depends(get_db),
+    actor: User = Depends(require_ai_worker),
+) -> LiveStreamSessionResponse:
+    """Issue a normal short-lived read token to an authenticated AI worker."""
     try:
         return service.create_session(
             db,

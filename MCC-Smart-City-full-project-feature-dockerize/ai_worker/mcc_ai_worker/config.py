@@ -61,3 +61,51 @@ class WorkerConfig:
             request_attempts=attempts,
             health_path=Path(os.getenv("AI_HEALTH_PATH", "/output/health.json")),
         )
+
+
+@dataclass(frozen=True)
+class LiveConfig:
+    camera_identifier: str
+    session_url_template: str
+    rtsp_base_url: str
+    sample_seconds: float
+    reconnect_min_seconds: float
+    reconnect_max_seconds: float
+    token_refresh_seconds: float
+    health_path: Path
+
+    @classmethod
+    def from_env(cls) -> "LiveConfig":
+        camera_identifier = os.getenv("AI_LIVE_CAMERA_IDENTIFIER", "").strip()
+        if not camera_identifier:
+            raise ValueError("AI_LIVE_CAMERA_IDENTIFIER is required for live mode.")
+
+        sample_seconds = float(os.getenv("AI_LIVE_SAMPLE_SECONDS", "2.0"))
+        reconnect_min = float(os.getenv("AI_LIVE_RECONNECT_MIN_SECONDS", "2.0"))
+        reconnect_max = float(os.getenv("AI_LIVE_RECONNECT_MAX_SECONDS", "30.0"))
+        token_refresh = float(os.getenv("AI_LIVE_TOKEN_REFRESH_SECONDS", "30.0"))
+        if sample_seconds <= 0:
+            raise ValueError("AI_LIVE_SAMPLE_SECONDS must be greater than zero.")
+        if reconnect_min <= 0 or reconnect_max < reconnect_min:
+            raise ValueError("AI live reconnect bounds are invalid.")
+        if token_refresh < 5:
+            raise ValueError("AI_LIVE_TOKEN_REFRESH_SECONDS must be at least 5.")
+
+        return cls(
+            camera_identifier=camera_identifier,
+            session_url_template=os.getenv(
+                "AI_LIVE_SESSION_URL_TEMPLATE",
+                "http://backend:8000/api/v1/live-streams/ai/cameras/"
+                "{camera_identifier}/session",
+            ).strip(),
+            rtsp_base_url=os.getenv(
+                "AI_LIVE_RTSP_BASE_URL", "rtsp://mediamtx:8554"
+            ).rstrip("/"),
+            sample_seconds=sample_seconds,
+            reconnect_min_seconds=reconnect_min,
+            reconnect_max_seconds=reconnect_max,
+            token_refresh_seconds=token_refresh,
+            health_path=Path(
+                os.getenv("AI_LIVE_HEALTH_PATH", "/output/live-health.json")
+            ),
+        )

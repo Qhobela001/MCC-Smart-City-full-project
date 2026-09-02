@@ -37,6 +37,77 @@ def stable_detection_uuid(
     return str(uuid.uuid5(uuid.NAMESPACE_URL, identity))
 
 
+def stable_live_detection_uuid(
+    *,
+    camera_identifier: str,
+    gateway_path: str,
+    captured_at: datetime,
+    frame_sequence: int,
+    detection: dict,
+    model_sha256: str,
+) -> str:
+    identity = json.dumps(
+        {
+            "camera": camera_identifier,
+            "path": gateway_path,
+            "captured_at": captured_at.astimezone(timezone.utc).isoformat(),
+            "frame_sequence": frame_sequence,
+            "class": detection["class_name"],
+            "bbox": detection["bbox"],
+            "model": model_sha256,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return str(uuid.uuid5(uuid.NAMESPACE_URL, identity))
+
+
+def build_live_detection(
+    *,
+    detection: dict,
+    captured_at: datetime,
+    camera_identifier: str,
+    gateway_path: str,
+    frame_sequence: int,
+    model_name: str,
+    model_version: str,
+    model_sha256: str,
+) -> dict:
+    return {
+        "detection_uuid": stable_live_detection_uuid(
+            camera_identifier=camera_identifier,
+            gateway_path=gateway_path,
+            captured_at=captured_at,
+            frame_sequence=frame_sequence,
+            detection=detection,
+            model_sha256=model_sha256,
+        ),
+        "detection_type": DETECTION_TYPES[detection["class_name"]],
+        "class_name": detection["class_name"],
+        "confidence": round(float(detection["confidence"]), 6),
+        "detected_at": captured_at.astimezone(timezone.utc).isoformat(),
+        "source_type": "test",
+        "camera_identifier": camera_identifier,
+        "stream_identifier": gateway_path,
+        "model_name": model_name,
+        "model_version": model_version,
+        "object_count": 1,
+        "attributes": {
+            "bbox_xyxy": detection["bbox"],
+            "class_id": detection["class_id"],
+            "camera_head": "composite",
+            "source_kind": "live_rtsp",
+            "gateway_path": gateway_path,
+            "frame_sequence": frame_sequence,
+            "model_sha256": model_sha256,
+            "stage": "AI-2",
+            "observation_mode": True,
+        },
+        # AI-2 remains observation-only regardless of environment settings.
+        "is_test": True,
+    }
+
+
 def build_detection(
     *,
     detection: dict,
