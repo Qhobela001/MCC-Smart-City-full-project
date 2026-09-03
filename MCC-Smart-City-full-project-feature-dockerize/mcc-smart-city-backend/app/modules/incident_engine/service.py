@@ -174,15 +174,35 @@ def process_detection(
             decision="skipped_test",
         )
 
-    # A qualified production event with completed evidence must be reviewed
-    # by an authorised MCC operator. It must never bypass the review queue.
+    # Stage AI-6 review contract: every production camera detection is
+    # fail-closed. It may enter the human review queue only when both temporal
+    # qualification and completed evidence are present. Missing contract data
+    # must never fall through to the legacy automatic-incident path.
     attributes = detection.attributes or {}
-    if (
-        rules.is_production_camera_detection(detection)
-        and detection.camera_identifier
-        and attributes.get("qualification")
-        and attributes.get("evidence")
-    ):
+    if rules.is_production_camera_detection(detection):
+        if not detection.camera_identifier:
+            _set_engine_metadata(
+                detection,
+                decision="missing_camera",
+                notes="Production AI review requires a camera identifier.",
+            )
+            db.add(detection)
+            db.flush()
+            return IncidentEngineResult(decision="missing_camera")
+
+        if not attributes.get("qualification") or not attributes.get("evidence"):
+            _set_engine_metadata(
+                detection,
+                decision="review_contract_incomplete",
+                notes=(
+                    "Production AI event blocked: temporal qualification and "
+                    "completed evidence are required before human review."
+                ),
+            )
+            db.add(detection)
+            db.flush()
+            return IncidentEngineResult(decision="review_contract_incomplete")
+
         _set_engine_metadata(
             detection,
             decision="awaiting_human_review",
@@ -211,8 +231,7 @@ def process_detection(
             alerts_created=len(recipients),
         )
 
-    # Automatic incident generation currently accepts
-    # production camera detections only.
+    # Non-production sources retain the existing unsupported-source handling.
     if not rules.is_production_camera_detection(
         detection
     ):

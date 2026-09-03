@@ -113,15 +113,17 @@ services:
     networks:
       - mcc-network
 
-  # Stage AI-2 through AI-5 live worker. It remains observation-only by
-  # default and is never enabled by ordinary application startup. AI-5
-  # operational review candidates require an explicit one-run override.
+  # Stage AI-2 through AI-6 live worker. It remains observation-only by
+  # default and is never enabled by ordinary application startup. Stage AI-6
+  # requires both operational flags plus qualification/evidence for a pilot.
   ai-live-observer:
     profiles: ["ai-live-test"]
     build:
       context: ./ai_worker
       dockerfile: Dockerfile
-    restart: unless-stopped
+    # Controlled-pilot safety: the observer reconnects internally, but a crashed
+    # operational worker must be deliberately restarted/armed by an operator.
+    restart: "no"
     stop_grace_period: 20s
     command: ["--live"]
     environment:
@@ -156,6 +158,7 @@ services:
       AI_EVIDENCE_RETENTION_HOURS: ${AI_EVIDENCE_RETENTION_HOURS:-24.0}
       AI_EVIDENCE_MAX_STORAGE_MB: ${AI_EVIDENCE_MAX_STORAGE_MB:-512}
       AI_OPERATIONAL_MODE: ${AI_OPERATIONAL_MODE:-false}
+      AI_OPERATIONAL_ARMED: ${AI_OPERATIONAL_ARMED:-false}
     volumes:
       - ${AI_MODEL_PATH:-./ai_worker/model_weights/mcc_detector_v1.pt}:/models/mcc_detector_v1.pt:ro
       - ./ai_worker/output:/output

@@ -7,6 +7,7 @@ from fastapi import HTTPException
 
 from app.main import app
 from app.modules.ai_detections import machine_auth, repository, service
+from app.modules.ai_detections.models import DetectionSource, DetectionType
 from app.modules.incident_engine import service as incident_engine_service
 from app.modules.users.models import UserStatus
 
@@ -181,6 +182,67 @@ class AIDetectionIngestionTests(unittest.TestCase):
             )
 
         self.assertIs(resolved, actor)
+
+
+    def test_production_camera_without_review_contract_is_blocked(self):
+        db = FakeSession()
+        detection = SimpleNamespace(
+            id=91,
+            incident_id=None,
+            is_test=False,
+            source_type=DetectionSource.camera,
+            camera_identifier="MCC-CAM-001",
+            detection_type=DetectionType.illegal_dumping,
+            location_name="Pilot Site",
+            attributes={},
+        )
+
+        result = incident_engine_service.process_detection(
+            db, detection, actor=SimpleNamespace(id=1),
+        )
+
+        self.assertEqual(result.decision, "review_contract_incomplete")
+        self.assertIsNone(result.incident)
+        self.assertEqual(result.alerts_created, 0)
+        self.assertEqual(
+            detection.attributes["incident_engine"]["decision"],
+            "review_contract_incomplete",
+        )
+        self.assertEqual(db.flushes, 1)
+
+    def test_qualified_production_camera_waits_for_human_review(self):
+        db = FakeSession()
+        detection = SimpleNamespace(
+            id=92,
+            incident_id=None,
+            is_test=False,
+            source_type=DetectionSource.camera,
+            camera_identifier="MCC-CAM-001",
+            detection_type=DetectionType.illegal_dumping,
+            location_name="Pilot Site",
+            attributes={
+                "qualification": {"decision": "qualified", "hits": 3},
+                "evidence": {"event_id": "event-92"},
+            },
+        )
+
+        with patch.object(
+            incident_engine_service.alert_repository,
+            "active_superadmins",
+            return_value=[],
+        ):
+            result = incident_engine_service.process_detection(
+                db, detection, actor=SimpleNamespace(id=1),
+            )
+
+        self.assertEqual(result.decision, "awaiting_human_review")
+        self.assertIsNone(result.incident)
+        self.assertEqual(result.alerts_created, 0)
+        self.assertEqual(
+            detection.attributes["incident_engine"]["decision"],
+            "awaiting_human_review",
+        )
+        self.assertEqual(db.flushes, 1)
 
     def test_test_detection_never_creates_operational_incident(self):
         db = FakeSession()

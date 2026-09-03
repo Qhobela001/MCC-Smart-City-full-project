@@ -11,6 +11,10 @@ VERIFIED_MODEL_SHA256 = (
 )
 
 
+def _env_flag(name: str, default: str = "false") -> bool:
+    return os.getenv(name, default).strip().lower() in {"1", "true", "yes", "on"}
+
+
 @dataclass(frozen=True)
 class WorkerConfig:
     backend_url: str
@@ -87,6 +91,7 @@ class LiveConfig:
     evidence_retention_hours: float = 24.0
     evidence_max_storage_bytes: int = 512 * 1024 * 1024
     operational_mode: bool = False
+    operational_armed: bool = False
 
     @classmethod
     def from_env(cls) -> "LiveConfig":
@@ -126,6 +131,29 @@ class LiveConfig:
         if evidence_max_mb < 10:
             raise ValueError("AI_EVIDENCE_MAX_STORAGE_MB must be at least 10.")
 
+        qualification_enabled = _env_flag("AI_QUALIFICATION_ENABLED")
+        evidence_enabled = _env_flag("AI_EVIDENCE_ENABLED")
+        operational_mode = _env_flag("AI_OPERATIONAL_MODE")
+        operational_armed = _env_flag("AI_OPERATIONAL_ARMED")
+
+        # Stage AI-6 fail-closed interlock. Production candidates must never be
+        # possible through a partial configuration. Operational mode therefore
+        # requires temporal qualification, completed evidence, and a separate
+        # explicit arming flag in addition to AI_OPERATIONAL_MODE=true.
+        if operational_mode:
+            if not operational_armed:
+                raise ValueError(
+                    "AI_OPERATIONAL_MODE=true requires AI_OPERATIONAL_ARMED=true."
+                )
+            if not qualification_enabled:
+                raise ValueError(
+                    "Operational AI requires AI_QUALIFICATION_ENABLED=true."
+                )
+            if not evidence_enabled:
+                raise ValueError(
+                    "Operational AI requires AI_EVIDENCE_ENABLED=true."
+                )
+
         return cls(
             camera_identifier=camera_identifier,
             session_url_template=os.getenv(
@@ -143,9 +171,7 @@ class LiveConfig:
             health_path=Path(
                 os.getenv("AI_LIVE_HEALTH_PATH", "/output/live-health.json")
             ),
-            qualification_enabled=os.getenv(
-                "AI_QUALIFICATION_ENABLED", "false"
-            ).strip().lower() in {"1", "true", "yes", "on"},
+            qualification_enabled=qualification_enabled,
             qualification_audit_path=Path(os.getenv(
                 "AI_QUALIFICATION_AUDIT_PATH",
                 "/output/qualification-audit.jsonl",
@@ -154,16 +180,13 @@ class LiveConfig:
             qualification_max_gap_seconds=max_gap,
             qualification_context_window_seconds=context_window,
             qualification_cooldown_seconds=cooldown,
-            evidence_enabled=os.getenv(
-                "AI_EVIDENCE_ENABLED", "false"
-            ).strip().lower() in {"1", "true", "yes", "on"},
+            evidence_enabled=evidence_enabled,
             evidence_root=Path(os.getenv("AI_EVIDENCE_ROOT", "/evidence")),
             evidence_pre_seconds=evidence_pre,
             evidence_post_seconds=evidence_post,
             evidence_sample_seconds=evidence_sample,
             evidence_retention_hours=evidence_retention,
             evidence_max_storage_bytes=evidence_max_mb * 1024 * 1024,
-            operational_mode=os.getenv(
-                "AI_OPERATIONAL_MODE", "false"
-            ).strip().lower() in {"1", "true", "yes", "on"},
+            operational_mode=operational_mode,
+            operational_armed=operational_armed,
         )

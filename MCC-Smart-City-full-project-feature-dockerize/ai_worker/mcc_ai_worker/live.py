@@ -15,6 +15,7 @@ from .config import LiveConfig, WorkerConfig
 from .evidence import EvidenceCaptureError, EvidenceRecorder
 from .ingestion import IngestionClient, IngestionError
 from .model import MCCModel
+from .outbox import DeliveryOutboxError, EvidenceDeliveryOutbox
 from .payloads import build_live_detection
 from .qualification import DEFAULT_RULES, EventQualifier, QualificationRule
 from .runner import write_health
@@ -115,6 +116,21 @@ def run_live_observer(
 ) -> dict:
     """Observe one MediaMTX stream sequentially; inference never overlaps."""
     stop_event = stop_event or threading.Event()
+
+    # Stage AI-6 defense in depth. LiveConfig.from_env() enforces the same
+    # contract, but direct construction (tests, scripts, future callers) must
+    # not be able to bypass the production interlock.
+    if live.operational_mode:
+        if not live.operational_armed:
+            raise ValueError(
+                "Operational AI is not armed. Set AI_OPERATIONAL_ARMED=true "
+                "only for a controlled pilot."
+            )
+        if not live.qualification_enabled or not live.evidence_enabled:
+            raise ValueError(
+                "Operational AI requires temporal qualification and evidence capture."
+            )
+
     model = model or MCCModel(worker.model_path, worker.model_sha256)
     ingestion = ingestion or IngestionClient(
         worker.backend_url, worker.worker_key, worker.request_attempts
@@ -155,11 +171,21 @@ def run_live_observer(
         )
         if live.evidence_enabled and qualifier is not None else None
     )
+    outbox = (
+        EvidenceDeliveryOutbox(
+            live.evidence_root,
+            recorder.camera_identifier,
+            is_test=not live.operational_mode,
+        )
+        if recorder is not None else None
+    )
     counters = {
         "status": "starting",
-        "stage": ("AI-5" if live.operational_mode else "AI-4") if recorder else ("AI-3" if qualifier else "AI-2"),
+        "stage": ("AI-6" if live.operational_mode else "AI-4") if recorder else ("AI-3" if qualifier else "AI-2"),
         "observation_mode": not live.operational_mode,
         "is_test": not live.operational_mode,
+        "operational_armed": live.operational_armed,
+        "review_contract_required": live.operational_mode,
         "camera_identifier": live.camera_identifier,
         "model_sha256": model.sha256,
         "started_at": started_at.isoformat(),
@@ -176,6 +202,11 @@ def run_live_observer(
         "evidence_completed": 0,
         "evidence_failures": 0,
         "evidence_bytes": 0,
+        "staged_evidence_bytes": recorder.storage_usage_bytes() if recorder else 0,
+        "delivery_pending": outbox.pending_count() if outbox else 0,
+        "delivery_acked": 0,
+        "delivery_failures": 0,
+        "last_delivery_at": None,
         "reconnects": 0,
         "consecutive_failures": 0,
         "last_frame_at": None,
@@ -188,11 +219,13 @@ def run_live_observer(
     reconnect_delay = live.reconnect_min_seconds
     frame_sequence = 0
 
-    def submit_evidence(bundles: list, gateway_path: str) -> None:
+    def queue_evidence(bundles: list, gateway_path: str) -> None:
         if not bundles:
             return
-        batch = [
-            build_live_detection(
+        if outbox is None:
+            raise DeliveryOutboxError("Evidence delivery outbox is unavailable.")
+        for item in bundles:
+            payload = build_live_detection(
                 detection=item.detection,
                 captured_at=item.captured_at,
                 camera_identifier=live.camera_identifier,
@@ -206,17 +239,37 @@ def run_live_observer(
                 evidence_metadata=item.metadata,
                 is_test=not live.operational_mode,
             )
-            for item in bundles
-        ]
-        response = ingestion.submit(batch)
-        counters["detections_created"] += int(response.get("created", 0))
+            # Persist before the network call. If the backend is unavailable,
+            # this sidecar survives reconnects and process restarts.
+            outbox.enqueue(payload)
         counters["evidence_completed"] += len(bundles)
         counters["evidence_bytes"] += sum(
             item.metadata["snapshot"]["size_bytes"]
             + item.metadata["clip"]["size_bytes"]
             for item in bundles
         )
-        counters["last_ingestion_at"] = utcnow().isoformat()
+        counters["delivery_pending"] = outbox.pending_count()
+        counters["staged_evidence_bytes"] = recorder.storage_usage_bytes() if recorder else 0
+
+    def deliver_pending() -> None:
+        if outbox is None:
+            return
+        pending = outbox.pending()
+        counters["delivery_pending"] = len(pending)
+        for item in pending:
+            try:
+                response = ingestion.submit([item.payload])
+            except IngestionError:
+                counters["delivery_failures"] += 1
+                counters["delivery_pending"] = outbox.pending_count()
+                raise
+            counters["detections_created"] += int(response.get("created", 0))
+            counters["last_ingestion_at"] = utcnow().isoformat()
+            counters["last_delivery_at"] = counters["last_ingestion_at"]
+            outbox.acknowledge(item)
+            counters["delivery_acked"] += 1
+        counters["delivery_pending"] = outbox.pending_count()
+        counters["staged_evidence_bytes"] = recorder.storage_usage_bytes() if recorder else 0
 
     def reached_limit() -> bool:
         if max_frames_analyzed is not None:
@@ -231,6 +284,12 @@ def run_live_observer(
         connected = False
         token_refresh = False
         try:
+            # Drain durable evidence first. In operational mode this creates
+            # deliberate backpressure: no new inference while review-bound
+            # evidence cannot be delivered to the backend.
+            deliver_pending()
+            if recorder is not None and live.operational_mode:
+                recorder.enforce_retention(utcnow())
             write_health(
                 live.health_path,
                 _health(counters, status="connecting", failure=None),
@@ -270,12 +329,16 @@ def run_live_observer(
                 if recorder is not None:
                     try:
                         recorder.add_frame(frame, now)
-                        submit_evidence(
-                            recorder.complete_ready(now), session.gateway_path
-                        )
-                    except (EvidenceCaptureError, OSError, ValueError) as exc:
+                        completed = recorder.complete_ready(now)
+                        queue_evidence(completed, session.gateway_path)
+                        deliver_pending()
+                        if live.operational_mode:
+                            recorder.enforce_retention(now)
+                    except (EvidenceCaptureError, DeliveryOutboxError, OSError, ValueError) as exc:
                         counters["evidence_failures"] += 1
                         counters["failure"] = f"Evidence capture failed: {exc}"
+                        if live.operational_mode:
+                            raise RuntimeError(counters["failure"]) from exc
 
                 if monotonic() < next_sample:
                     continue
@@ -302,9 +365,11 @@ def run_live_observer(
                         try:
                             recorder.start(item, frame, now, frame_sequence)
                             counters["evidence_started"] += 1
-                        except (EvidenceCaptureError, OSError, ValueError) as exc:
+                        except (EvidenceCaptureError, DeliveryOutboxError, OSError, ValueError) as exc:
                             counters["evidence_failures"] += 1
                             counters["failure"] = f"Evidence capture failed: {exc}"
+                            if live.operational_mode:
+                                raise RuntimeError(counters["failure"]) from exc
                     selected = []
                 batch = [
                     build_live_detection(
@@ -362,11 +427,12 @@ def run_live_observer(
 
     if recorder is not None and recorder.pending:
         try:
-            submit_evidence(
+            queue_evidence(
                 recorder.complete_ready(utcnow(), force=True),
                 str(counters["gateway_path"] or ""),
             )
-        except (EvidenceCaptureError, IngestionError, OSError, ValueError) as exc:
+            deliver_pending()
+        except (EvidenceCaptureError, DeliveryOutboxError, IngestionError, OSError, ValueError) as exc:
             counters["evidence_failures"] += 1
             counters["failure"] = f"Evidence finalization failed: {exc}"
 

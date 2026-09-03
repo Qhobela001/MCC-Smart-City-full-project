@@ -131,8 +131,8 @@ class EvidenceRecorderTests(unittest.TestCase):
                 root, "MCC-CAM-002", max_storage_bytes=10,
                 encode_jpeg=fake_encode, write_clip=fake_clip,
             )
-            first_dir = root / "test" / "camera" / "date" / "old"
-            second_dir = root / "test" / "camera" / "date" / "new"
+            first_dir = recorder.scope_root / "date" / "old"
+            second_dir = recorder.scope_root / "date" / "new"
             first_dir.mkdir(parents=True, exist_ok=True)
             second_dir.mkdir(parents=True, exist_ok=True)
             (first_dir / "manifest.json").write_bytes(b"{}")
@@ -147,6 +147,50 @@ class EvidenceRecorderTests(unittest.TestCase):
             )
             self.assertLessEqual(remaining, 10)
 
+
+
+    def test_new_operational_bundle_is_preserved_before_capacity_failure(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            recorder = EvidenceRecorder(
+                root, "MCC-CAM-002", pre_seconds=1, post_seconds=1,
+                sample_seconds=1, max_storage_bytes=10, is_test=False,
+                encode_jpeg=fake_encode, write_clip=fake_clip,
+            )
+            start = datetime(2026, 9, 3, tzinfo=timezone.utc)
+            recorder.add_frame("pre", start)
+            recorder.start(qualified_detection(), "event", start, 1)
+            recorder.add_frame("post", start + timedelta(seconds=1))
+            bundle = recorder.complete_ready(start + timedelta(seconds=1))[0]
+            event_dir = (root / bundle.snapshot_path).parent
+
+            self.assertTrue(event_dir.exists())
+            with self.assertRaises(EvidenceCaptureError):
+                recorder.enforce_retention(start + timedelta(seconds=1))
+            self.assertTrue(event_dir.exists())
+            self.assertTrue((event_dir / "snapshot.jpg").exists())
+            self.assertTrue((event_dir / "clip.mp4").exists())
+
+    def test_operational_retention_never_deletes_review_evidence(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            recorder = EvidenceRecorder(
+                root, "MCC-CAM-002", max_storage_bytes=10,
+                encode_jpeg=fake_encode, write_clip=fake_clip, is_test=False,
+            )
+            event = recorder.scope_root / "date" / "review-pending"
+            event.mkdir(parents=True, exist_ok=True)
+            (event / "manifest.json").write_bytes(b"{}")
+            (event / "clip.mp4").write_bytes(b"x" * 20)
+            for path in event.iterdir():
+                os.utime(path, (1, 1))
+
+            with self.assertRaises(EvidenceCaptureError):
+                recorder.enforce_retention(datetime.now(timezone.utc))
+
+            self.assertTrue(event.exists())
+            self.assertTrue((event / "clip.mp4").exists())
+
     def test_retention_deletes_whole_event_bundle(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -154,8 +198,8 @@ class EvidenceRecorderTests(unittest.TestCase):
                 root, "MCC-CAM-002", max_storage_bytes=12,
                 encode_jpeg=fake_encode, write_clip=fake_clip,
             )
-            old = root / "test" / "camera" / "date" / "old"
-            new = root / "test" / "camera" / "date" / "new"
+            old = recorder.scope_root / "date" / "old"
+            new = recorder.scope_root / "date" / "new"
             for target, marker in ((old, b"a"), (new, b"b")):
                 target.mkdir(parents=True, exist_ok=True)
                 (target / "manifest.json").write_bytes(b"{}")

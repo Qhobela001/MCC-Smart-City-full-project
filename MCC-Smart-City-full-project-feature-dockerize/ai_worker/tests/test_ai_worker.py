@@ -11,12 +11,14 @@ from pathlib import Path
 
 from mcc_ai_worker.config import LiveConfig, WorkerConfig
 from mcc_ai_worker.evidence import EvidenceBundle
+from mcc_ai_worker.ingestion import IngestionError
 from mcc_ai_worker.live import (
     StreamSession,
     authenticated_rtsp_url,
     run_live_observer,
 )
 from mcc_ai_worker.model import EXPECTED_CLASSES, sha256_file
+from mcc_ai_worker.outbox import EvidenceDeliveryOutbox
 from mcc_ai_worker.payloads import build_detection, stable_detection_uuid
 from mcc_ai_worker.runner import run_source
 
@@ -50,6 +52,17 @@ class FakeClient:
     def submit(self, detections):
         self.batches.append(detections)
         return {"created": len(detections), "items": []}
+
+
+class FailingClient:
+    def __init__(self):
+        self.calls = 0
+
+    def submit(self, detections):
+        self.calls += 1
+        if detections:
+            raise IngestionError("backend unavailable")
+        return {"created": 0, "items": []}
 
 
 class FakeSessions:
@@ -90,8 +103,20 @@ class StepClock:
 
 
 class FakeEvidenceRecorder:
-    def __init__(self, *args, **kwargs):
+    def __init__(self, root, camera_identifier, *args, **kwargs):
+        self.root = Path(root)
+        self.camera_identifier = camera_identifier
+        self.is_test = kwargs.get("is_test", True)
+        self.namespace = "test" if self.is_test else "operational"
         self.pending = []
+
+    def storage_usage_bytes(self):
+        if not self.root.exists():
+            return 0
+        return sum(path.stat().st_size for path in self.root.rglob("*") if path.is_file())
+
+    def enforce_retention(self, now):
+        return None
 
     def add_frame(self, frame, captured_at):
         return None
@@ -112,10 +137,11 @@ class FakeEvidenceRecorder:
                 detection=item.detection,
                 captured_at=item.captured_at,
                 frame_sequence=item.frame_sequence,
-                snapshot_path="test/camera/event/snapshot.jpg",
-                clip_path="test/camera/event/clip.mp4",
+                snapshot_path=f"{self.namespace}/{self.camera_identifier}/event/snapshot.jpg",
+                clip_path=f"{self.namespace}/{self.camera_identifier}/event/clip.mp4",
                 metadata={
-                    "stage": "AI-4", "is_test": True,
+                    "stage": "AI-5" if not self.is_test else "AI-4",
+                    "is_test": self.is_test,
                     "snapshot": {"size_bytes": 10},
                     "clip": {"size_bytes": 20},
                 },
@@ -308,6 +334,83 @@ class AIWorkerTests(unittest.TestCase):
                 created[0]["attributes"]["qualification"]["decision"],
                 "qualified",
             )
+
+
+
+    def test_backend_failure_leaves_completed_evidence_in_durable_outbox(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            worker = WorkerConfig(
+                backend_url="http://unused", worker_key="key",
+                model_path=root / "model.pt", model_sha256="unused",
+                model_name="mcc_detector_v1", model_version="v1",
+                confidence=0.25, image_size=640, video_sample_seconds=1,
+                request_attempts=1, health_path=root / "file-health.json",
+            )
+            live = LiveConfig(
+                camera_identifier="MCC-CAM-001",
+                session_url_template="http://unused/{camera_identifier}",
+                rtsp_base_url="rtsp://mediamtx:8554", sample_seconds=1,
+                reconnect_min_seconds=0.001, reconnect_max_seconds=0.001,
+                token_refresh_seconds=30, health_path=root / "live-health.json",
+                qualification_enabled=True,
+                qualification_audit_path=root / "qualification.jsonl",
+                evidence_enabled=True, evidence_root=root / "evidence",
+            )
+            with patch("mcc_ai_worker.live.EvidenceRecorder", FakeEvidenceRecorder):
+                result = run_live_observer(
+                    worker, live, model=ContextModel(), ingestion=FailingClient(),
+                    sessions=FakeSessions(), capture_factory=lambda _: FakeCapture(),
+                    max_frames_analyzed=3, monotonic=StepClock(),
+                )
+            outbox = EvidenceDeliveryOutbox(
+                root / "evidence", "MCC-CAM-001", is_test=True
+            )
+            self.assertEqual(result["delivery_failures"], 1)
+            self.assertEqual(result["delivery_pending"], 1)
+            self.assertEqual(outbox.pending_count(), 1)
+            self.assertIn("backend unavailable", result["failure"])
+
+    def test_fully_armed_operational_candidate_is_non_test_and_review_bound(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            worker = WorkerConfig(
+                backend_url="http://unused", worker_key="key",
+                model_path=root / "model.pt", model_sha256="unused",
+                model_name="mcc_detector_v1", model_version="v1",
+                confidence=0.25, image_size=640, video_sample_seconds=1,
+                request_attempts=1, health_path=root / "file-health.json",
+            )
+            live = LiveConfig(
+                camera_identifier="MCC-CAM-001",
+                session_url_template="http://unused/{camera_identifier}",
+                rtsp_base_url="rtsp://mediamtx:8554", sample_seconds=1,
+                reconnect_min_seconds=0.001, reconnect_max_seconds=0.001,
+                token_refresh_seconds=30, health_path=root / "live-health.json",
+                qualification_enabled=True,
+                qualification_audit_path=root / "qualification.jsonl",
+                evidence_enabled=True, evidence_root=root / "evidence",
+                operational_mode=True, operational_armed=True,
+            )
+            client = FakeClient()
+            with patch("mcc_ai_worker.live.EvidenceRecorder", FakeEvidenceRecorder):
+                result = run_live_observer(
+                    worker, live, model=ContextModel(), ingestion=client,
+                    sessions=FakeSessions(), capture_factory=lambda _: FakeCapture(),
+                    max_frames_analyzed=3, monotonic=StepClock(),
+                )
+            created = [item for batch in client.batches for item in batch]
+            self.assertEqual(result["stage"], "AI-6")
+            self.assertTrue(result["operational_armed"])
+            self.assertTrue(result["review_contract_required"])
+            self.assertEqual(result["delivery_pending"], 0)
+            self.assertEqual(result["delivery_acked"], 1)
+            self.assertEqual(len(created), 1)
+            self.assertFalse(created[0]["is_test"])
+            self.assertEqual(created[0]["source_type"], "camera")
+            self.assertTrue(created[0]["snapshot_path"].startswith("operational/"))
+            self.assertIn("qualification", created[0]["attributes"])
+            self.assertIn("evidence", created[0]["attributes"])
 
     def test_live_evidence_is_completed_before_candidate_ingestion(self):
         with tempfile.TemporaryDirectory() as directory:

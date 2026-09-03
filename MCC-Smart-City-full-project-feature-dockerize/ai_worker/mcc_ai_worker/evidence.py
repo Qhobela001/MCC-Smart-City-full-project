@@ -132,6 +132,11 @@ class EvidenceRecorder:
     ) -> None:
         self.root = root.resolve()
         self.camera_identifier = _safe_component(camera_identifier)
+        self.namespace = "test" if is_test else "operational"
+        self.scope_root = (
+            self.root / self.namespace / self.camera_identifier
+        ).resolve()
+        self.scope_root.relative_to(self.root)
         self.pre_seconds = pre_seconds
         self.post_seconds = post_seconds
         self.sample_seconds = sample_seconds
@@ -144,7 +149,11 @@ class EvidenceRecorder:
         self.pending: list[PendingEvidence] = []
         self.last_sample_at: datetime | None = None
         self.root.mkdir(parents=True, exist_ok=True)
-        self.enforce_retention(datetime.now(timezone.utc))
+        # Test evidence may be pruned immediately. Operational staging is
+        # checked by the live worker only after any durable pending deliveries
+        # have first had a chance to reach the backend.
+        if self.is_test:
+            self.enforce_retention(datetime.now(timezone.utc))
 
     def add_frame(self, frame: object, captured_at: datetime) -> None:
         if self.last_sample_at is not None:
@@ -172,9 +181,8 @@ class EvidenceRecorder:
         }, sort_keys=True)
         event_id = str(uuid.uuid5(uuid.NAMESPACE_URL, identity))
         day = captured_at.astimezone(timezone.utc).strftime("%Y/%m/%d")
-        namespace = "test" if self.is_test else "operational"
-        directory = self.root / namespace / self.camera_identifier / day / event_id
-        directory.resolve().relative_to(self.root)
+        directory = self.scope_root / day / event_id
+        directory.resolve().relative_to(self.scope_root)
         snapshot = directory / "snapshot.jpg"
         _atomic_write(snapshot, self.encode_jpeg(frame, detection.get("bbox")))
         self.pending.append(PendingEvidence(
@@ -196,7 +204,7 @@ class EvidenceRecorder:
         ]
         self.pending = [item for item in self.pending if item not in ready]
         completed = [self._finalize(item, force=force) for item in ready]
-        if completed:
+        if completed and self.is_test:
             protected = {
                 (self.root / item.snapshot_path).parent.resolve()
                 for item in completed
@@ -207,6 +215,9 @@ class EvidenceRecorder:
                 for directory in protected:
                     shutil.rmtree(directory, ignore_errors=True)
                 raise
+        # Operational bundles are never removed here. The live worker first
+        # writes the durable delivery sidecar and submits them, then performs
+        # the fail-closed storage-cap check.
         return completed
 
     def _finalize(self, pending: PendingEvidence, *, force: bool) -> EvidenceBundle:
@@ -255,14 +266,46 @@ class EvidenceRecorder:
             metadata=metadata,
         )
 
+    @staticmethod
+    def _directory_size(directory: Path) -> int:
+        return sum(
+            path.stat().st_size for path in directory.rglob("*") if path.is_file()
+        )
+
+    def storage_usage_bytes(self) -> int:
+        if not self.scope_root.exists():
+            return 0
+        return self._directory_size(self.scope_root)
+
     def enforce_retention(
         self, now: datetime, *, protected: set[Path] | None = None
     ) -> None:
-        protected = protected or set()
-        cutoff = now.timestamp() - self.retention_hours * 3600
+        protected = {item.resolve() for item in (protected or set())}
+        # A queued delivery is not disposable. Keep it even in test mode until
+        # the backend acknowledges the idempotent detection payload.
+        protected.update(
+            path.parent.resolve()
+            for path in self.scope_root.rglob("delivery.json")
+        )
+
         event_directories = {
-            path.parent.resolve() for path in self.root.rglob("manifest.json")
+            path.parent.resolve()
+            for path in self.scope_root.rglob("manifest.json")
         }
+
+        # Stage AI-6: operational evidence waiting for human review must never
+        # be deleted by the worker because of age or storage pressure. If the
+        # staging area reaches its cap, fail closed and surface the condition.
+        if not self.is_test:
+            total = sum(self._directory_size(directory) for directory in event_directories)
+            if total > self.max_storage_bytes:
+                raise EvidenceCaptureError(
+                    "Operational staged evidence exceeds the configured storage "
+                    "limit; review or archive existing events before continuing."
+                )
+            return
+
+        cutoff = now.timestamp() - self.retention_hours * 3600
         for directory in list(event_directories):
             newest = max(
                 (path.stat().st_mtime for path in directory.rglob("*") if path.is_file()),
@@ -272,11 +315,6 @@ class EvidenceRecorder:
                 shutil.rmtree(directory, ignore_errors=True)
                 event_directories.discard(directory)
 
-        def directory_size(directory: Path) -> int:
-            return sum(
-                path.stat().st_size for path in directory.rglob("*") if path.is_file()
-            )
-
         ordered = sorted(
             event_directories,
             key=lambda directory: max(
@@ -284,16 +322,16 @@ class EvidenceRecorder:
                 default=0,
             ),
         )
-        total = sum(directory_size(directory) for directory in ordered)
+        total = sum(self._directory_size(directory) for directory in ordered)
         for directory in ordered:
             if total <= self.max_storage_bytes:
                 break
             if directory in protected:
                 continue
-            size = directory_size(directory)
+            size = self._directory_size(directory)
             shutil.rmtree(directory, ignore_errors=True)
             total -= size
         if total > self.max_storage_bytes:
             raise EvidenceCaptureError(
-                "New evidence bundle exceeds the configured storage limit."
+                "Evidence storage limit is occupied by protected pending bundles."
             )
